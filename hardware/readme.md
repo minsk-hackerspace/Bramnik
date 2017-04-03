@@ -1,4 +1,4 @@
-Interface
+Interface:
 ---------
 
 Reader <-> Host Connector
@@ -12,5 +12,13 @@ Long distance i2c (RJ11-4P4C)
 * 4 - SCL
 
 
+Scheme:
+-------
 
-TODO: add readme
+![](https://github.com/minsk-hackerspace/Bramnik/raw/master/hardware/reader_scheme.png)
+
+
+TODO:
+-----
+
+add readme
