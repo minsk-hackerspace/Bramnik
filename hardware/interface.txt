@@ -1,7 +1,0 @@
-Reader <-> Host Connector
-6P4C
-1 - GND
-2 - VCC (+5V)
-3 - TX
-4 - RX
-
