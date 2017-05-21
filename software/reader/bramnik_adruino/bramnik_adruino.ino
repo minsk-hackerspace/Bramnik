@@ -32,10 +32,18 @@ int noteNum = 0;
 const byte ROWS = 4; //four rows
 const byte COLS = 3; //three columns
 
+
+// consts/variables to throttle same NFC reporting
+uint8_t last_read_uid[] = { 0, 0, 0, 0, 0, 0, 0 }; // uid of last read NFC label
+unsigned long    last_read_time  = -1; // Time of last successful NFC read
+const   unsigned long read_debounce = 1000000 * 1; // 1 second
+
+
+
 char numberKeys[ROWS][COLS] = {
     { '7','8','9' },
     { '4','5','6' },
-    { '1','2','3' },    
+    { '1','2','3' },
     { '*','0','#' }
 };
 
@@ -54,9 +62,9 @@ void setup(void) {
   digitalWrite(pin_led_green, LOW);
   digitalWrite(pin_led_red, LOW);
   digitalWrite(pin_sound, LOW);
-  
+
   keypad.addEventListener(keypadEvent);
-  
+
   Serial.begin(115200);
   Serial.println("Hello!");
 
@@ -71,19 +79,19 @@ void setup(void) {
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
-  
+
   // configure board to read RFID tags
   nfc.SAMConfig();
-  
+
   Serial.println("Waiting for an ISO14443A Card ...");
 }
 
 void loop(void) {
 
-  
-  
+
+
   char customKey = keypad.getKey();
-  
+
   if (customKey){
     //Serial.println(customKey);
     if (customKey == '*') {
@@ -99,22 +107,40 @@ void loop(void) {
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;   
 
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength,20);
-  
+
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 20);
   if (success) {
-    tone(pin_sound, NOTE_A4, 20);      
+    int compare = memcmp(last_read_uid, uid, 7);
+    unsigned long time_passed = micros()-last_read_time;
+    if (0 == compare && time_passed < read_debounce ){ //same NFC device
+
+        Serial.println(time_passed);
+        Serial.println(micros()-last_read_time);
+    }
+    else{
+        tone(pin_sound, NOTE_A4, 20);
+        Serial.println("Found an ISO14443A card");
+        Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
+        Serial.print("  UID Value: ");
+        nfc.PrintHex(uid, uidLength);
+        Serial.println("");
+        long tm = fillLastNFC(uid);
+        Serial.println(tm);
+    }
+
+
     
     // Display some basic information about the card
 
-    Serial.println("Found an ISO14443A card");
-    Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
-    Serial.print("  UID Value: ");
-    nfc.PrintHex(uid, uidLength);
-    Serial.println("");
-  }     
-  
+  }
 
 
+}
+
+long fillLastNFC(uint8_t *newNFC){
+    memcpy(last_read_uid, newNFC, 7);
+    last_read_time = micros();
+    return last_read_time;
 }
 
 
@@ -263,3 +289,93 @@ void mus2() {
     
 }
 
+/*
+
+
+#include <Wire.h>
+
+int led = 13;
+bool on = LOW;
+
+int rd;
+int count;
+int num;
+
+byte i2c_arr_9[9] = {9,1,2,3,4,5,6,7,8};    
+byte i2c_arr_12[12] = {12,1,2,3,4,5,6,7,8,9,10,11};
+byte i2c_arr_32[32] = {32,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92};
+byte i2c_arr_33[33] = {33,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,11};
+
+void setup() {
+  pinMode(led, OUTPUT); 
+
+  
+  rd = 0;
+  count = 0;
+  num = 0;
+  
+  Wire.begin(0x68);
+  Wire.onRequest(requestEvent);
+  Wire.onReceive(receiveEvent); 
+  Serial.begin(9600);          
+  
+}
+
+void loop() {
+
+  if (count > 0) {
+    on = !on;
+    if (on == false) {
+       count --;
+     }
+  }
+  
+  digitalWrite(led, on);
+  
+  delay(100);
+}
+
+void requestEvent() {
+  
+  Serial.print("rq ");  
+  Serial.println(rd);  
+  
+  if (rd == 1) {
+    Wire.write("hello there!");
+    count = 1;
+  } else if (rd == 2) {
+    Wire.write("This is a sample of a very long string. I suppose it is about 122 (one hundred and twenty two) bytes length. Amazing!!!!!");
+    count = 2;
+  } else if (rd == 9) {
+    Wire.write(i2c_arr_9,9);  
+    count = 3;
+  } else if (rd == 12) {
+    Wire.write(i2c_arr_12,12);  
+    count = 4;    
+  } else if (rd == 32) {
+    Wire.write(i2c_arr_32,32);  
+    count = 5;    
+  } else if (rd == 33) {
+    Wire.write(i2c_arr_33,33);  
+    count = 6;    
+  } else {
+    num++;
+    Wire.write(num);  
+    count = 8;
+  }
+  
+}
+
+void receiveEvent(int howMany) {
+  Serial.print("rc ");
+  Serial.print(howMany);
+  Serial.print(" = ");
+  int x = Wire.read();    // receive byte as an integer
+  Serial.println(x);         // print the integer
+
+  if (x >= 0) {
+    rd = x;
+    count = x;
+  }
+  
+}*/
