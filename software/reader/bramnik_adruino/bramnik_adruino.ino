@@ -34,10 +34,10 @@ const byte COLS = 3; //three columns
 
 
 // consts/variables to throttle same NFC reporting
-uint8_t last_read_uid[] = { 0, 0, 0, 0, 0, 0, 0 }; // uid of last read NFC label
+uint8_t last_read_uid[32] = { 0, 0, 0, 0, 0, 0, 0 }; // uid of last read NFC label
 unsigned long    last_read_time  = -1; // Time of last successful NFC read
 const   unsigned long read_debounce = 1000000 * 1; // 1 second
-const   unsigned long NFC_data_timeout = 1000000 * 5; // 5 seconds
+const   unsigned long NFC_data_timeout = 1000000 * 10; // 10 seconds
 
 
 /*Master to slave:*/
@@ -59,22 +59,27 @@ const   unsigned long NFC_data_timeout = 1000000 * 5; // 5 seconds
 /** 32 bytes from NFC when 0x31 asked*/
 /** 32 bytes from Keypad when 0x32 asked*/
 
-const uint8_t ENABLE_CMD = 0x10;
+const uint8_t CMD_ENABLE = 0x10;
 const uint8_t KEYPAD_MASK=0x02;
 const uint8_t NFC_MASK=0x01;
 
-const uint8_t PLAY_CMD = 0x20;
+const uint8_t CMD_PLAY = 0x20;
 const uint8_t GRANTED=0x00;
 const uint8_t DENIED=0x01;
 
-const uint8_t ASK_CMD = 0x30;
+const uint8_t CMD_ASK = 0x30;
 const uint8_t STATUS=0x00;
 const uint8_t NFC_DATA=0x01;
 
 // Wire cmd type and value
-unsigned int cmd_type;
-unsigned int cmd;
+volatile unsigned int cmd_type;
+volatile unsigned int cmd;
 
+
+
+//some reader features
+bool enable_nfc; 
+bool enable_keypad;
 
 char numberKeys[ROWS][COLS] = {
     { '7','8','9' },
@@ -88,6 +93,7 @@ byte colPins[COLS] = {7, 8, 9}; //connect to the column pinouts of the keypad
 
 //initialize an instance of class NewKeypad
 Keypad keypad = Keypad( makeKeymap(numberKeys), rowPins, colPins, ROWS, COLS); 
+
 
 void setup(void) {
 
@@ -110,70 +116,74 @@ void setup(void) {
   if (! versiondata) {
     Serial.print("Didn't find PN53x board");
     while (1); // halt
+  } else {
+    // Got ok data, print it out!
+    Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
+    Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
+    Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
   }
-  // Got ok data, print it out!
-  Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
-  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
-  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
 
+  enable_keypad = true;
+  enable_nfc = true;
+  
   // configure board to read RFID tags
   nfc.SAMConfig();
 
+  Wire.begin(0x68);
+  Wire.onRequest(requestEvent);
+  Wire.onReceive(receiveEvent); 
 
-    Wire.begin(0x68);
-    Wire.onRequest(requestEvent);
-    Wire.onReceive(receiveEvent); 
-
-    Serial.println("Waiting for an ISO14443A Card ...");
+  Serial.println("Waiting for an ISO14443A Card ...");
+  
 }
 
 void loop(void) {
 
-
-
-  char customKey = keypad.getKey();
-
-  if (customKey){
-    //Serial.println(customKey);
-    if (customKey == '*') {
-      firstSection();
-    }
-    if (customKey == '#') {
-      mus1();
-    }
-  }
+  if (enable_keypad) {
+    char customKey = keypad.getKey();
   
-
-  uint8_t success;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-  uint8_t uidLength;   
-
-
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 20);
-  if (success) {
-    int compare = memcmp(last_read_uid, uid, 7);
-    unsigned long time_passed = micros()-last_read_time;
-    if (0 == compare && time_passed < read_debounce ){ //same NFC device
-
-        Serial.println(time_passed);
-        Serial.println(micros()-last_read_time);
+    if (customKey){
+      
+      if (customKey == '*') {
+        firstSection();
+      }
+      if (customKey == '#') {
+        mus1();
+      }
     }
-    else{
-        tone(pin_sound, NOTE_A4, 20);
-        Serial.println("Found an ISO14443A card");
-        Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
-        Serial.print("  UID Value: ");
-        nfc.PrintHex(uid, uidLength);
-        Serial.println("");
-        long tm = fillLastNFC(uid);
-        Serial.println(tm);
-    }
-
-
-    
-    // Display some basic information about the card
-
   }
+
+  
+  if (enable_nfc) {
+  
+    uint8_t success;
+    uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
+    uint8_t uidLength;   
+  
+  
+    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 20);
+    if (success) {
+      int compare = memcmp(last_read_uid, uid, 7);
+      unsigned long time_passed = micros()-last_read_time;
+      if (0 == compare && time_passed < read_debounce ){ //same NFC device
+  
+          Serial.println(time_passed);
+          Serial.println(micros()-last_read_time);
+      }
+      else{
+          tone(pin_sound, NOTE_A4, 20);
+          Serial.println("Found an ISO14443A card");
+          Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
+          Serial.print("  UID Value: ");
+          nfc.PrintHex(uid, uidLength);
+          Serial.println("");
+          long tm = fillLastNFC(uid);
+          Serial.println(tm);
+      }
+      // Display some basic information about the card
+    }    
+  }
+
 
 
 }
@@ -186,33 +196,42 @@ long fillLastNFC(uint8_t *newNFC){
 
 
 void requestEvent() {
+
+    Serial.println("requestEvent");
     uint8_t status;
     unsigned long time_since_last_read;
 
     Serial.print("cmd_type: ");
     Serial.println(cmd_type);
+
     Serial.print("cmd: ");
     Serial.println(cmd);
 
-    switch(cmd_type){
-        case ENABLE_CMD:
+    switch(cmd_type) {
+        case CMD_ENABLE:
+            Serial.print("CMD_ASK");
             Wire.write("hello there!");
-            /*cmd*/
-            /*KEYPAD_MASK=0x02;*/
-            /*NFC_MASK=0x01;*/
+            //cmd
+            //KEYPAD_MASK=0x02;
+            //NFC_MASK=0x01;
             break;
-        case PLAY_CMD:
+        case CMD_PLAY:
+            Serial.print("CMD_PLAY ");
             Wire.write("hello there!");
             break;
-        case ASK_CMD:
+        case CMD_ASK:
+            Serial.print("CMD_ASK");
             switch(cmd){
                 case STATUS:
+                    Serial.print("ask: STATUS ");
                     time_since_last_read = micros() - last_read_time;
                     status = time_since_last_read < NFC_data_timeout ? 1 : 0;
+                    Serial.println(status);
                     Wire.write(status);
 
                 break;
                 case NFC_DATA:
+                    Serial.print("ask: NFC_DATA ");
                     Wire.write(last_read_uid, 7);  
                 break;
             };
@@ -223,22 +242,36 @@ void requestEvent() {
 }
 
 void receiveEvent(int howMany) {
+
+    if (howMany == 0) {
+      Serial.println("requestEvent coming ");  
+      return;   
+    }
     
+    Serial.print("receiveEvent ");
+    Serial.println(howMany);
+
     unsigned int x = Wire.read();    // receive byte as an integer
     cmd_type = x & 0xf0;
     cmd = x & 0x0f;
 
+    Serial.print("cmd_type = ");
+    Serial.println(cmd_type);
+
+    Serial.print("cmd = ");
+    Serial.println(cmd);
+
     switch(cmd_type){
-        case ENABLE_CMD:
-            Serial.print("Enable CMD received: ");
+        case CMD_ENABLE:
+            Serial.print("CMD Enable received: ");
             Serial.println(cmd);
             break;
-        case PLAY_CMD:
-            Serial.print("Play CMD received: ");
+        case CMD_PLAY:
+            Serial.print("CMD Play received: ");
             Serial.println(cmd);
             break;
-        case ASK_CMD:
-            Serial.print("ASK CMD received: ");
+        case CMD_ASK:
+            Serial.print("CMD ASK received: ");
             Serial.println(cmd);
             break;
     };
@@ -314,6 +347,7 @@ void firstSection()
   delay(500);
 }
 
+//beep only for plaing music
 void beep(int note, int duration) {
 
   if (note == NO_SOUND) {
@@ -339,10 +373,10 @@ void beep(int note, int duration) {
 
 
 int not1[] = {
-  /*NOTE_G4,NOTE_G4,NO_SOUND,NOTE_G4,NOTE_G4,NO_SOUND,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,
+  NOTE_G4,NOTE_G4,NO_SOUND,NOTE_G4,NOTE_G4,NO_SOUND,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,
    NOTE_B3,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_CS4,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_B3,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_CS4,NOTE_G3,NOTE_C4,NOTE_G3,
    NOTE_E4,NOTE_F4,NOTE_F4,NOTE_F4,NOTE_F4,NOTE_E4,NOTE_E4,NOTE_E4,
-   NOTE_E4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_E4,NOTE_E4,NOTE_E4,*/
+   NOTE_E4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_E4,NOTE_E4,NOTE_E4,
    //Introduction
   NOTE_E4,NOTE_F4,NOTE_F4,NOTE_F4,NOTE_F4,NOTE_E4,NOTE_E4,NOTE_E4,
   NOTE_E4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_E4,NOTE_E4,NOTE_E4,
@@ -356,10 +390,10 @@ int not1[] = {
 
 // note duration: 1 = whole note, 2 = half note, 4 = quarter note, 8 = eighth note, etc.
 int dur1[] = {
-  /*8,8,2,8,8,2,16,8,16,8,8,
-   2,4,2,4,2,4,2,4,2,4,2,4,2,4,2,4,
-   8,16,16,8,4,8,8,8,
-   8,16,16,8,4,8,8,8,*/
+  8,8,2,8,8,2,16,8,16,8,8,
+  2,4,2,4,2,4,2,4,2,4,2,4,2,4,2,4,
+  8,16,16,8,4,8,8,8,
+  8,16,16,8,4,8,8,8,
   8,16,16,8,4,8,8,8,
   8,16,16,8,4,8,8,8,
   8,16,16,8,4,8,8,8,
@@ -389,9 +423,10 @@ void mus2() {
     
 }
 
+
+
+
 /*
-
-
 #include <Wire.h>
 
 int led = 13;
@@ -417,8 +452,8 @@ void setup() {
   Wire.begin(0x68);
   Wire.onRequest(requestEvent);
   Wire.onReceive(receiveEvent); 
-  Serial.begin(9600);          
-  
+  Serial.begin(115200);          
+  Serial.println(rd);  
 }
 
 void loop() {
@@ -478,4 +513,6 @@ void receiveEvent(int howMany) {
     count = x;
   }
   
-}*/
+}
+
+*/
