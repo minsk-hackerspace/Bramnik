@@ -3,13 +3,12 @@ Interface:
 
 Reader (i2c slave) <-> Host Connector (i2c master)
 
-Long distance i2c (RJ11-4P4C)
+Long distance i2c ( RJ11-4P4C Flat telephone cable )
 
-
-- 1 - SDA
-- 2 - VCC (+12V)
-- 3 - GND
-- 4 - SCL
+- 1 - SCL black
+- 2 - VCC red (+12..15V)
+- 3 - GND green
+- 4 - SDA yellow
 
 
 Protocol:
