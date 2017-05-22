@@ -37,7 +37,43 @@ const byte COLS = 3; //three columns
 uint8_t last_read_uid[] = { 0, 0, 0, 0, 0, 0, 0 }; // uid of last read NFC label
 unsigned long    last_read_time  = -1; // Time of last successful NFC read
 const   unsigned long read_debounce = 1000000 * 1; // 1 second
+const   unsigned long NFC_data_timeout = 1000000 * 5; // 5 seconds
 
+
+/*Master to slave:*/
+
+/** 0x10 disable NFC reader + disable keypad*/
+/** 0x11 enable NFC reader + disable keypad*/
+/** 0x12 disable NFC reader + enable keypad*/
+/** 0x13 enable NFC reader + enable keypad*/
+/** 0x20 play "access denied"*/
+/** 0x21 play "access granted"*/
+/** 0x30 ask for status*/
+/** 0x31 ask for 32 bytes from NFC*/
+/** 0x32 ask for 32 bytes from keypad*/
+
+/*slave to master:*/
+
+/** 0 bytes when no ask before request*/
+/** 1 byte of status when 0x30 asked (0 = nothing happens, 1 = has NCF data , 2 = has keypad data)*/
+/** 32 bytes from NFC when 0x31 asked*/
+/** 32 bytes from Keypad when 0x32 asked*/
+
+const uint8_t ENABLE_CMD = 0x10;
+const uint8_t KEYPAD_MASK=0x02;
+const uint8_t NFC_MASK=0x01;
+
+const uint8_t PLAY_CMD = 0x20;
+const uint8_t GRANTED=0x00;
+const uint8_t DENIED=0x01;
+
+const uint8_t ASK_CMD = 0x30;
+const uint8_t STATUS=0x00;
+const uint8_t NFC_DATA=0x01;
+
+// Wire cmd type and value
+unsigned int cmd_type;
+unsigned int cmd;
 
 
 char numberKeys[ROWS][COLS] = {
@@ -83,7 +119,12 @@ void setup(void) {
   // configure board to read RFID tags
   nfc.SAMConfig();
 
-  Serial.println("Waiting for an ISO14443A Card ...");
+
+    Wire.begin(0x68);
+    Wire.onRequest(requestEvent);
+    Wire.onReceive(receiveEvent); 
+
+    Serial.println("Waiting for an ISO14443A Card ...");
 }
 
 void loop(void) {
@@ -143,6 +184,65 @@ long fillLastNFC(uint8_t *newNFC){
     return last_read_time;
 }
 
+
+void requestEvent() {
+    uint8_t status;
+    unsigned long time_since_last_read;
+
+    Serial.print("cmd_type: ");
+    Serial.println(cmd_type);
+    Serial.print("cmd: ");
+    Serial.println(cmd);
+
+    switch(cmd_type){
+        case ENABLE_CMD:
+            Wire.write("hello there!");
+            /*cmd*/
+            /*KEYPAD_MASK=0x02;*/
+            /*NFC_MASK=0x01;*/
+            break;
+        case PLAY_CMD:
+            Wire.write("hello there!");
+            break;
+        case ASK_CMD:
+            switch(cmd){
+                case STATUS:
+                    time_since_last_read = micros() - last_read_time;
+                    status = time_since_last_read < NFC_data_timeout ? 1 : 0;
+                    Wire.write(status);
+
+                break;
+                case NFC_DATA:
+                    Wire.write(last_read_uid, 7);  
+                break;
+            };
+            break;
+    };
+
+  
+}
+
+void receiveEvent(int howMany) {
+    
+    unsigned int x = Wire.read();    // receive byte as an integer
+    cmd_type = x & 0xf0;
+    cmd = x & 0x0f;
+
+    switch(cmd_type){
+        case ENABLE_CMD:
+            Serial.print("Enable CMD received: ");
+            Serial.println(cmd);
+            break;
+        case PLAY_CMD:
+            Serial.print("Play CMD received: ");
+            Serial.println(cmd);
+            break;
+        case ASK_CMD:
+            Serial.print("ASK CMD received: ");
+            Serial.println(cmd);
+            break;
+    };
+}
 
 void keypadEvent(KeypadEvent key){
   switch (keypad.getState()){
