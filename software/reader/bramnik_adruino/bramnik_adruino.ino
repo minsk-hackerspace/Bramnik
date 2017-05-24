@@ -33,6 +33,8 @@
 
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
 
+//#define NOKEYSOUND
+#define SAMEKEYSOUND
 
 int pin_led_green = A0;
 int pin_led_red = A1;
@@ -105,6 +107,33 @@ byte colPins[COLS] = {7, 8, 9}; //connect to the column pinouts of the keypad
 //initialize an instance of class NewKeypad
 Keypad keypad = Keypad( makeKeymap(numberKeys), rowPins, colPins, ROWS, COLS); 
 
+char keypadBuffer[32] = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
+int keypadPos = 0;
+
+//function declaration
+
+void keypadEvent(KeypadEvent key);
+void requestEvent();
+void receiveEvent(int howMany);
+
+
+//implementation
+void keyAppend(char key) {
+  //append keypadBuffer  
+  keypadBuffer[keypadPos++] = key;
+}
+
+void keyClear() {
+  //clear keypadBuffer
+  keypadPos = 0;
+}
+
+void keyEnter() {
+  //send keypadBuffer to host
+  keypadPos = 0;  
+  dbgln(keypadBuffer);
+}
+
 
 void setup(void) {
 
@@ -148,19 +177,24 @@ void setup(void) {
   
 }
 
+
+
 void loop(void) {
 
   if (enable_keypad) {
     char customKey = keypad.getKey();
   
-    if (customKey){
+    if (customKey) {
       
-      if (customKey == '*') {
-        firstSection();
+      if (customKey == '.') {
+        keyEnter();
+      } else if (customKey == 'C') {
+        keyClear();
+      } else {
+        keyAppend(customKey);
       }
-      if (customKey == '#') {
-        mus1();
-      }
+
+      
     }
   }
 
@@ -182,7 +216,7 @@ void loop(void) {
           dbgln(micros()-last_read_time);
       }
       else{
-          tone(pin_sound, NOTE_A4, 20);
+          tone(pin_sound, NOTE_A4, 30);
           Serial.println("Found an ISO14443A card");
           Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
           Serial.print("  UID Value: ");
@@ -298,8 +332,12 @@ void keypadEvent(KeypadEvent key){
     case PRESSED: {
       dbg("press ");
       int note = toneByKey(key);
+      int duration = 2000;
+#ifdef SAMEKEYSOUND
+      duration = 30;
+#endif  
       if (note) {
-        tone(pin_sound, note, 2000);
+        tone(pin_sound, note, duration);
       }
     }
     break;
@@ -313,16 +351,25 @@ void keypadEvent(KeypadEvent key){
       dbg("hold ");
     break;
   }
-  dbg(key);  
+  dbgln(key);  
 }
 
 int toneByKey(char key) {
+
+#ifdef NOKEYSOUND
+  return 0;
+#endif  
+  
+#ifdef SAMEKEYSOUND
+  return NOTE_D6;
+#endif  
+
   switch (key){
-    case '7':
+    case '1':
     return NOTE_C3;
-    case '8':
+    case '2':
     return NOTE_D3;
-    case '9':
+    case '3':
     return NOTE_E3;
     case '4':
     return NOTE_C4;
@@ -330,7 +377,14 @@ int toneByKey(char key) {
     return NOTE_D4;
     case '6':
     return NOTE_E4;
-    
+    case '7':
+    return NOTE_C5;
+    case '8':
+    return NOTE_D5;
+    case '9':
+    return NOTE_E5;
+    case '0':
+    return NOTE_D6;
   }
   return 0;
 }
