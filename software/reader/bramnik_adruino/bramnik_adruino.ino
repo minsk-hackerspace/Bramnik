@@ -20,6 +20,17 @@
 #define PN532_SS   (10)
 #define PN532_MISO (12)
 
+#define DEBUG
+
+#ifdef DEBUG
+    #define dbg(a) Serial.print(a)
+    #define dbgln(a)    Serial.println(a)
+#else
+    #define dbg(a) 
+    #define dbgln(a)
+
+#endif
+
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
 
 
@@ -108,7 +119,7 @@ void setup(void) {
   keypad.addEventListener(keypadEvent);
 
   Serial.begin(115200);
-  Serial.println("Hello!");
+  dbgln("Hello!");
 
   nfc.begin();
 
@@ -167,8 +178,8 @@ void loop(void) {
       unsigned long time_passed = micros()-last_read_time;
       if (0 == compare && time_passed < read_debounce ){ //same NFC device
   
-          Serial.println(time_passed);
-          Serial.println(micros()-last_read_time);
+          dbgln(time_passed);
+          dbgln(micros()-last_read_time);
       }
       else{
           tone(pin_sound, NOTE_A4, 20);
@@ -197,42 +208,42 @@ long fillLastNFC(uint8_t *newNFC){
 
 void requestEvent() {
 
-    Serial.println("requestEvent");
+    dbgln("requestEvent");
     uint8_t status;
     unsigned long time_since_last_read;
 
-    Serial.print("cmd_type: ");
-    Serial.println(cmd_type);
+    dbg("cmd_type: ");
+    dbgln(cmd_type);
 
-    Serial.print("cmd: ");
-    Serial.println(cmd);
+    dbg("cmd: ");
+    dbgln(cmd);
 
     switch(cmd_type) {
         case CMD_ENABLE:
-            Serial.print("CMD_ASK");
+            dbgln("CMD_ASK");
             Wire.write("hello there!");
             //cmd
             //KEYPAD_MASK=0x02;
             //NFC_MASK=0x01;
             break;
         case CMD_PLAY:
-            Serial.print("CMD_PLAY ");
+            dbgln("CMD_PLAY ");
             Wire.write("hello there!");
             break;
         case CMD_ASK:
-            Serial.print("CMD_ASK");
+            dbgln("CMD_ASK");
             switch(cmd){
                 case STATUS:
-                    Serial.print("ask: STATUS ");
+                    dbgln("ask: STATUS ");
                     time_since_last_read = micros() - last_read_time;
                     status = time_since_last_read < NFC_data_timeout ? 1 : 0;
-                    Serial.println(status);
+                    dbgln(status);
                     Wire.write(status);
 
                 break;
                 case NFC_DATA:
-                    Serial.print("ask: NFC_DATA ");
-                    Wire.write(last_read_uid, 7);  
+                    dbgln("ask: NFC_DATA ");
+                    Wire.write(last_read_uid, 7);
                 break;
             };
             break;
@@ -244,35 +255,35 @@ void requestEvent() {
 void receiveEvent(int howMany) {
 
     if (howMany == 0) {
-      Serial.println("requestEvent coming ");  
+      dbgln("requestEvent coming ");  
       return;   
     }
     
-    Serial.print("receiveEvent ");
-    Serial.println(howMany);
+    dbg("receiveEvent ");
+    dbgln(howMany);
 
     unsigned int x = Wire.read();    // receive byte as an integer
     cmd_type = x & 0xf0;
     cmd = x & 0x0f;
 
-    Serial.print("cmd_type = ");
-    Serial.println(cmd_type);
+    dbg("cmd_type = ");
+    dbgln(cmd_type);
 
-    Serial.print("cmd = ");
-    Serial.println(cmd);
+    dbg("cmd = ");
+    dbgln(cmd);
 
     switch(cmd_type){
         case CMD_ENABLE:
-            Serial.print("CMD Enable received: ");
-            Serial.println(cmd);
+            dbg("CMD Enable received: ");
+            dbgln(cmd);
             break;
         case CMD_PLAY:
-            Serial.print("CMD Play received: ");
-            Serial.println(cmd);
+            dbg("CMD Play received: ");
+            dbgln(cmd);
             break;
         case CMD_ASK:
-            Serial.print("CMD ASK received: ");
-            Serial.println(cmd);
+            dbg("CMD ASK received: ");
+            dbgln(cmd);
             break;
     };
 }
@@ -280,7 +291,7 @@ void receiveEvent(int howMany) {
 void keypadEvent(KeypadEvent key){
   switch (keypad.getState()){
     case PRESSED: {
-      Serial.print("press ");
+      dbg("press ");
       int note = toneByKey(key);
       if (note) {
         tone(pin_sound, note, 2000);
@@ -288,16 +299,16 @@ void keypadEvent(KeypadEvent key){
     }
     break;
     case RELEASED: {
-      Serial.print("release ");
+      dbg("release ");
       noTone(pin_sound);
       }
       
     break;
     case HOLD:
-      Serial.print("hold ");
+      dbg("hold ");
     break;
   }
-  Serial.println(key);  
+  dbg(key);  
 }
 
 int toneByKey(char key) {
