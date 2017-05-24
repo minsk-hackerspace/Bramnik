@@ -96,7 +96,7 @@ char numberKeys[ROWS][COLS] = {
     { '7','8','9' },
     { '4','5','6' },
     { '1','2','3' },
-    { '*','0','#' }
+    { 'C','0','.' }
 };
 
 byte rowPins[ROWS] = {3, 4, 5, 6}; //connect to the row pinouts of the keypad
@@ -220,11 +220,6 @@ void requestEvent() {
 
     switch(cmd_type) {
         case CMD_ENABLE:
-            dbgln("CMD_ASK");
-            Wire.write("hello there!");
-            //cmd
-            //KEYPAD_MASK=0x02;
-            //NFC_MASK=0x01;
             break;
         case CMD_PLAY:
             dbgln("CMD_PLAY ");
@@ -276,6 +271,16 @@ void receiveEvent(int howMany) {
         case CMD_ENABLE:
             dbg("CMD Enable received: ");
             dbgln(cmd);
+
+            enable_keypad = cmd & KEYPAD_MASK;
+            enable_nfc = cmd & NFC_MASK;
+            
+            dbg("enable_keypad: ");
+            dbgln(enable_keypad);     
+      
+            dbg("enable_nfc: ");
+            dbgln(enable_nfc);      
+            
             break;
         case CMD_PLAY:
             dbg("CMD Play received: ");
