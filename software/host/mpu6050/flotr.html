@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Test plot</title>
+    <link href="/usr/local/lib/ruby/gems/2.2.0/gems/flotr-1.3.12/lib/layout.css" rel="stylesheet" type="text/css">
+    <!--[if IE]><script type="text/javascript" src="/usr/local/lib/ruby/gems/2.2.0/gems/flotr-1.3.12/lib/excanvas.pack.js"></script><![endif]-->
+    <script type="text/javascript" src="/usr/local/lib/ruby/gems/2.2.0/gems/flotr-1.3.12/lib/jquery.min.js"></script>
+    <script type="text/javascript" src="/usr/local/lib/ruby/gems/2.2.0/gems/flotr-1.3.12/lib/jquery.flot.js"></script>
+    <script type="text/javascript">
+      $(document).ready( function() {
+        // setup plot
+
+        var options = {
+          legend:    { show: false },
+          xaxis:     {label: "",},
+          yaxis:     {label: "",},
+          points: { show: true }, 
+          lines:  { show: true },
+          selection: { mode: 'xy' },
+          hints: {
+            show: true,
+            hintFormatter: function( datapoint ) {
+              hintStr = "";
+              for( var key in datapoint ) {
+                if( key[0] == '_' ) { continue; } // skip internal members
+                hintStr += "<strong>" + key + ":</strong> " +
+                           datapoint[key].toFixed(2) + "<br/>";
+              }
+              return hintStr;
+            } },
+          grid: {
+            clickable: true,
+            hoverable: true,
+            hoverFill: '#444',
+            hoverRadius: 5
+          }
+        };
+
+        // var startData = getData( 0, 3 * Math.PI );
+        var startData = [ { color: "red", label: "rotation x", data: [[0, 3.0], [1, 3.0], [2, 3.0], [3, 3.0], [4, 3.0], [5, 3.0], [6, 3.0], [7, 3.0], [8, 3.0], [9, 3.0], [10, 2.9], [11, 2.9], [12, 3.0], [13, 2.9], [14, 2.9], [15, 3.0], [16, 2.9], [17, 3.0], [18, 3.0], [19, 3.0], [20, 3.0], [21, 3.0], [22, 3.0], [23, 3.0], [24, 3.0], [25, 3.0], [26, 3.0], [27, 2.9], [28, 2.9], [29, 2.9], [30, 2.9], [31, 2.9], [32, 2.9], [33, 2.9], [34, 2.9], [35, 2.9], [36, 2.9], [37, 2.9], [38, 2.9], [39, 2.9], [40, 2.9], [41, 2.9], [42, 2.9], [43, 2.9], [44, 2.9], [45, 2.9], [46, 2.9], [47, 2.9], [48, 2.9], [49, 2.9], [50, 2.9], [51, 2.9], [52, 2.9], [53, 2.9], [54, 2.9], [55, 2.9], [56, 2.9], [57, 2.9], [58, 2.9], [59, 2.9], [60, 2.9], [61, 2.9], [62, 2.9], [63, 2.9], [64, 2.9], [65, 2.9], [66, 2.9], [67, 2.9], [68, 2.9], [69, 2.9], [70, 2.9], [71, 2.9], [72, 2.9], [73, 2.9], [74, 2.9], [75, 2.9], [76, 2.9], [77, 2.9], [78, 2.9], [79, 2.9], [80, 2.9], [81, 2.8], [82, 2.8], [83, 2.8], [84, 2.8], [85, 2.8], [86, 2.8], [87, 2.8], [88, 2.8], [89, 2.8], [90, 2.8], [91, 2.8], [92, 2.8], [93, 2.8], [94, 2.8], [95, 2.8], [96, 2.8], [97, 2.8], [98, 2.8], [99, 2.8]]}, { color: "green", label: "rotation x", data: [[0, 3.0], [1, 2.9], [2, 3.0], [3, 3.2], [4, 3.0], [5, 3.1], [6, 2.9], [7, 2.7], [8, 3.0], [9, 2.8], [10, 2.6], [11, 2.9], [12, 3.3], [13, 2.6], [14, 3.1], [15, 3.3], [16, 2.6], [17, 3.3], [18, 3.0], [19, 2.9], [20, 3.1], [21, 3.0], [22, 2.9], [23, 2.8], [24, 3.2], [25, 3.1], [26, 2.8], [27, 2.6], [28, 2.7], [29, 2.9], [30, 2.9], [31, 2.9], [32, 2.9], [33, 2.7], [34, 2.7], [35, 2.7], [36, 2.7], [37, 2.8], [38, 2.7], [39, 3.0], [40, 2.9], [41, 3.0], [42, 3.0], [43, 2.9], [44, 2.9], [45, 2.8], [46, 2.9], [47, 3.1], [48, 2.6], [49, 2.8], [50, 3.2], [51, 3.0], [52, 2.9], [53, 3.0], [54, 3.2], [55, 2.9], [56, 3.0], [57, 2.8], [58, 2.7], [59, 2.7], [60, 2.8], [61, 2.8], [62, 2.6], [63, 2.6], [64, 2.7], [65, 2.6], [66, 2.7], [67, 2.7], [68, 2.9], [69, 2.6], [70, 2.6], [71, 2.6], [72, 2.6], [73, 2.8], [74, 2.9], [75, 2.7], [76, 2.8], [77, 2.7], [78, 2.8], [79, 2.6], [80, 3.0], [81, 2.5], [82, 2.7], [83, 2.9], [84, 2.9], [85, 2.8], [86, 2.8], [87, 2.7], [88, 2.8], [89, 2.8], [90, 2.8], [91, 3.1], [92, 2.9], [93, 2.9], [94, 2.8], [95, 2.8], [96, 2.9], [97, 2.6], [98, 2.8], [99, 2.9]]} ]
+        var plot = $.plot( $('#placeholder'), startData, options );
+
+        // setup overview
+        var overview = $.plot( $('#overview'), startData, {
+          legend:     { show: true, container: $('#overviewLegend') },
+          lines:      { show: true, lineWidth: 1 },
+          shadowSize: 0,
+          xaxis:      { ticks: 4, min: null, max: null},
+          yaxis:      { ticks: 3, min: null, max:   null},
+          grid:       { color: "#999" },
+          selection:  { mode: 'xy' }
+        } );
+
+        // now connect the two
+        var internalSelection = false;
+
+        $('#placeholder').bind( 'plotselected', function( event, area ) {
+          // clamp the zooming to prevent eternal zoom
+          if( area.x2 - area.x1 < 0.00001 ) area.x2 = area.x1 + 0.00001;
+          if( area.y2 - area.y1 < 0.00001 ) area.y2 = area.y1 + 0.00001;
+
+          // do the zooming
+          plot = $.plot( $('#placeholder'), startData,
+                         $.extend( true, {}, options, {
+                           xaxis: { min: area.x1, max: area.x2 },
+                           yaxis: { min: area.y1, max: area.y2 }
+                         } ) );
+
+          if( internalSelection ) return;
+          internalSelection = true;
+          overview.setSelection( area );
+          internalSelection = false;
+        } );
+
+        $('#overview').bind( 'plotselected', function( event, area ) {
+          if( internalSelection ) return;
+          internalSelection = true;
+          plot.setSelection( area );
+          internalSelection = false;
+        } );
+        // setup event handlers
+        $("#placeholder").bind( 'plotclick', function( e, pos ) {
+          if( !pos.selected ) { return; }
+          plot.highlight( pos.selected );
+          x = pos.selected.x.toFixed( 2 );
+          y = pos.selected.y.toFixed( 2 );
+          $("#result").text( 'You clicked on (' + x +  ', ' + y + ')' );
+        } );
+
+        $("#placeholder").bind( 'plotmousemove', function( e, pos ) {
+          if( !pos.selected ) { return; }
+          plot.highlight( pos.selected );
+        } );
+      } );
+    </script>
+  </head>
+  <body>
+    <h1>Test plot</h1>
+
+      <div id="placeholder" style="float:left;width: 600px; height: 300px;"></div>
+    <div id="miniature" style="float:left;margin-left:20px;margin-top:0px">
+      <div id="overview" style="width:166px;height:100px"></div>
+      <p id="overviewLegend" style="margin-left:10px"></p>
+      <p><span id="result"></span></p>
+    </div>
+
+    <p style="clear:left">
+    </p>
+  </body>
+</html>
