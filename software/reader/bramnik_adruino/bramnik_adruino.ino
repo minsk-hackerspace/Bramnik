@@ -83,6 +83,7 @@ const uint8_t DENIED=0x01;
 const uint8_t CMD_ASK = 0x30;
 const uint8_t STATUS=0x00;
 const uint8_t NFC_DATA=0x01;
+const uint8_t KEYPAD_DATA=0x02;
 
 // Wire cmd type and value
 volatile unsigned int cmd_type;
@@ -107,8 +108,10 @@ byte colPins[COLS] = {7, 8, 9}; //connect to the column pinouts of the keypad
 //initialize an instance of class NewKeypad
 Keypad keypad = Keypad( makeKeymap(numberKeys), rowPins, colPins, ROWS, COLS); 
 
-char keypadBuffer[32] = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
+#define KEYBUF_LEN  32
+char keypadBuffer[KEYBUF_LEN] = {};
 int keypadPos = 0;
+bool keypadEntered = false;
 
 //function declaration
 
@@ -120,17 +123,24 @@ void receiveEvent(int howMany);
 //implementation
 void keyAppend(char key) {
   //append keypadBuffer  
-  keypadBuffer[keypadPos++] = key;
+  if(keypadEntered){
+    keyClear();
+  }
+  if(keypadPos<KEYBUF_LEN){
+    keypadBuffer[keypadPos++] = key;
+  }
 }
 
 void keyClear() {
   //clear keypadBuffer
   keypadPos = 0;
+  memset(keypadBuffer, 0, KEYBUF_LEN);
+  keypadEntered = false;
 }
 
 void keyEnter() {
   //send keypadBuffer to host
-  keypadPos = 0;  
+  keypadEntered = true;
   dbgln(keypadBuffer);
 }
 
@@ -226,7 +236,7 @@ void loop(void) {
           Serial.println(tm);
       }
       // Display some basic information about the card
-    }    
+    }
   }
 
 
@@ -266,13 +276,22 @@ void requestEvent() {
                     dbgln("ask: STATUS ");
                     time_since_last_read = micros() - last_read_time;
                     status = time_since_last_read < NFC_data_timeout ? 1 : 0;
+                    //status |= keypadEntered ? 0x02 : 0;
+
                     dbgln(status);
                     Wire.write(status);
 
                 break;
+                case KEYPAD_DATA:
+                    dbgln("ask: KEYPAD_DATA ");
+                    Wire.write(keypadBuffer, keypadPos);
+                    keyClear();
+                break;
+
                 case NFC_DATA:
                     dbgln("ask: NFC_DATA ");
                     Wire.write(last_read_uid, 7);
+                    last_read_time = 0;
                 break;
             };
             break;
