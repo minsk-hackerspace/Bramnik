@@ -1,5 +1,5 @@
-# Bramnik HOST
+### Copy to remote host 
+scp -P 222 * pi@bramnik:/home/pi/Bramnik/software/host
 
-Host controller 
-Based on Raspberry PI 2 board
-sofrware sources
+### To run
+~/Bramnik/software/host: ruby host.rb
