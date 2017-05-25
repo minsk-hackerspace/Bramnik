@@ -477,7 +477,11 @@ void beep(int note, int duration) {
 
 //note only for plaing music
 void note(int note, int duration) {
-  beep(note, duration);
+
+  int note_ton = note & 0x3FFF;
+  int note_dur = note & 0xC000;
+  
+  beep(note_ton, duration);
   delay(duration*1.1);
   noteNum++; 
 }
@@ -513,7 +517,7 @@ int dur1[] = {
   8,2,8,8,1,
   8,4,8,4,8,8,
   8,8,4,8,4,8,
-  4,8,4,8,3
+  4,8,4,8,1
 };
 
 void music(int nots[], int durs[], int count) {
