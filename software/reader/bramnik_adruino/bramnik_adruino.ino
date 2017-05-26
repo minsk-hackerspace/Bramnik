@@ -102,6 +102,12 @@ char numberKeys[ROWS][COLS] = {
     { 'C','0','.' }
 };
 
+int toneNfc = NOTE_A4;
+int toneKey = NOTE_D6;
+int toneEnter = NOTE_E7;
+int toneClear = NOTE_C3;
+
+
 byte rowPins[ROWS] = {3, 4, 5, 6}; //connect to the row pinouts of the keypad
 byte colPins[COLS] = {7, 8, 9}; //connect to the column pinouts of the keypad
 
@@ -118,30 +124,40 @@ bool keypadEntered = false;
 void keypadEvent(KeypadEvent key);
 void requestEvent();
 void receiveEvent(int howMany);
-
+void mus_ok();
+void mus_no();
 
 //implementation
 void keyAppend(char key) {
   //append keypadBuffer  
   if(keypadEntered){
-    keyClear();
+    keyClearMuted();
   }
   if(keypadPos<KEYBUF_LEN){
     keypadBuffer[keypadPos++] = key;
+  } else {
+    keyClear();  
   }
 }
 
-void keyClear() {
-  //clear keypadBuffer
+void keyClearMuted() {
   keypadPos = 0;
   memset(keypadBuffer, 0, KEYBUF_LEN);
   keypadEntered = false;
+}
+void keyClear() {
+  //clear keypadBuffer
+  keyClearMuted();
+  //beep(toneClear,100);
+  mus_ok();
 }
 
 void keyEnter() {
   //send keypadBuffer to host
   keypadEntered = true;
   dbgln(keypadBuffer);
+  //beep(toneEnter,50);
+  mus_no();
 }
 
 
@@ -224,9 +240,10 @@ void loop(void) {
   
           dbgln(time_passed);
           dbgln(micros()-last_read_time);
-      }
-      else{
-          tone(pin_sound, NOTE_A4, 30);
+          
+      } else {
+        
+          beep(toneNfc, 30);
           Serial.println("Found an ISO14443A card");
           Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
           Serial.print("  UID Value: ");
@@ -266,8 +283,6 @@ void requestEvent() {
         case CMD_ENABLE:
             break;
         case CMD_PLAY:
-            dbgln("CMD_PLAY ");
-            Wire.write("hello there!");
             break;
         case CMD_ASK:
             dbgln("CMD_ASK");
@@ -276,8 +291,10 @@ void requestEvent() {
                     dbgln("ask: STATUS ");
                     time_since_last_read = micros() - last_read_time;
                     status = time_since_last_read < NFC_data_timeout ? 1 : 0;
-                    //status |= keypadEntered ? 0x02 : 0;
-
+                    
+                    status |= keypadEntered ? 0x02 : 0;
+                    
+                    dbg("responce: ");
                     dbgln(status);
                     Wire.write(status);
 
@@ -285,7 +302,7 @@ void requestEvent() {
                 case KEYPAD_DATA:
                     dbgln("ask: KEYPAD_DATA ");
                     Wire.write(keypadBuffer, keypadPos);
-                    keyClear();
+                    keyClearMuted();
                 break;
 
                 case NFC_DATA:
@@ -338,6 +355,15 @@ void receiveEvent(int howMany) {
         case CMD_PLAY:
             dbg("CMD Play received: ");
             dbgln(cmd);
+            
+            if (cmd == 0) {
+                dbgln("ACCESS DENIED");
+                mus_no();
+            }
+            if (cmd == 1) {
+                dbgln("ACCESS GRANTED !!!");
+                mus_ok();
+            }            
             break;
         case CMD_ASK:
             dbg("CMD ASK received: ");
@@ -355,14 +381,12 @@ void keypadEvent(KeypadEvent key){
 #ifdef SAMEKEYSOUND
       duration = 30;
 #endif  
-      if (note) {
-        tone(pin_sound, note, duration);
-      }
+      beep(note, duration);
     }
     break;
     case RELEASED: {
       dbg("release ");
-      noTone(pin_sound);
+      beep(0,0);
       }
       
     break;
@@ -378,7 +402,13 @@ int toneByKey(char key) {
 #ifdef NOKEYSOUND
   return 0;
 #endif  
-  
+    
+  switch (key){
+    case '.':
+    case 'C':
+    return 0;
+  }
+    
 #ifdef SAMEKEYSOUND
   return NOTE_D6;
 #endif  
@@ -409,55 +439,52 @@ int toneByKey(char key) {
 }
 
 
-void firstSection()
-{
-  beep(a, 500);
-  beep(a, 500);    
-  beep(a, 500);
-  beep(f, 350);
-  beep(cH, 150);  
-  beep(a, 500);
-  beep(f, 350);
-  beep(cH, 150);
-  beep(a, 650);
+void firstSection() {
+  
+  note(NOTE_A4, 500);
+  note(NOTE_A4, 500);    
+  note(NOTE_A4, 500);
+  note(NOTE_F4, 350);
+  note(NOTE_C5, 150);  
+  note(NOTE_A4, 500);
+  note(NOTE_F4, 350);
+  note(NOTE_C5, 150);
+  note(NOTE_A4, 650);
  
   delay(500);
  
-  beep(eH, 500);
-  beep(eH, 500);
-  beep(eH, 500);  
-  beep(fH, 350);
-  beep(cH, 150);
-  beep(gS, 500);
-  beep(f, 350);
-  beep(cH, 150);
-  beep(a, 650);
+  note(NOTE_E5, 500);
+  note(NOTE_E5, 500);
+  note(NOTE_E5, 500);  
+  note(NOTE_F5, 350);
+  note(NOTE_C5, 150);
+  note(NOTE_GS4, 500);
+  note(NOTE_F4, 350);
+  note(NOTE_C5, 150);
+  note(NOTE_A4, 650);
  
   delay(500);
 }
 
-//beep only for plaing music
+//beep 
 void beep(int note, int duration) {
-
-  if (note == NO_SOUND) {
+  if (note == NO_SOUND || duration == 0) {
     noTone(pin_sound);
   } else {
     tone(pin_sound, note, duration);
   }
-  if(noteNum % 2 == 0) {
-    digitalWrite(pin_led_green, HIGH);
-    digitalWrite(pin_led_red, LOW);
-  } else {
-    digitalWrite(pin_led_green, LOW);
-    digitalWrite(pin_led_red, HIGH);
-  }
-
-  delay(duration*1.1);
-  
-  noteNum++;
-  
 }
 
+//note only for plaing music
+void note(int note, int duration) {
+
+  int note_ton = note & 0x3FFF;
+  int note_dur = note & 0xC000;
+  
+  beep(note_ton, duration);
+  delay(duration*1.1);
+  noteNum++; 
+}
 
 
 
@@ -490,30 +517,43 @@ int dur1[] = {
   8,2,8,8,1,
   8,4,8,4,8,8,
   8,8,4,8,4,8,
-  4,8,4,8,3
+  4,8,4,8,1
 };
 
 void music(int nots[], int durs[], int count) {
   for (int Note = 0; Note < count; Note++) {
     int duration = 1450/durs[Note];
     int cur_note = nots[Note];
-    beep(cur_note,duration);
+    note(cur_note,duration);
   }  
   
-  digitalWrite(pin_led_green, LOW);
-  digitalWrite(pin_led_red, LOW);
   
 } 
 
 void mus1() {
-   music(not1,dur1,54);
+  
+  digitalWrite(pin_led_green, HIGH);
+  music(not1,dur1,54);
+  digitalWrite(pin_led_green, LOW);
+  digitalWrite(pin_led_red, LOW);
+  
 }
 void mus2() {
-    
+  
+   digitalWrite(pin_led_red, HIGH);  
+   firstSection();
+  digitalWrite(pin_led_green, LOW);
+  digitalWrite(pin_led_red, LOW);
+   
 }
 
+void mus_ok() {
+   mus1();
+}
 
-
+void mus_no() {
+   mus2();
+}
 
 /*
 #include <Wire.h>
