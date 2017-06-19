@@ -1,7 +1,8 @@
 /*************************************************
  * Public Constants
  *************************************************/
-#define NO_SOUND 1
+#define NO_SOUND 0
+#define NOTE_PAUSE 1
 #define NOTE_B0  31
 #define NOTE_C1  33
 #define NOTE_CS1 35
@@ -92,4 +93,21 @@
 //#define NOTE_D8  4699
 //#define NOTE_DS8 4978
 
+#define DUR_DBL 0<<12
+#define DUR_1 1<<12
+#define DUR_2 2<<12
+#define DUR_4 3<<12
+#define DUR_8 4<<12
+#define DUR_16 5<<12
+#define DUR_32 6<<12
+#define DUR_64 7<<12
+
+#define DURL_DBL 8<<12
+#define DURL_1 9<<12
+#define DURL_2 10<<12
+#define DURL_4 11<<12
+#define DURL_8 12<<12
+#define DURL_16 13<<12
+#define DURL_32 14<<12
+#define DURL_64 15<<12
 

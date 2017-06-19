@@ -126,6 +126,7 @@ void requestEvent();
 void receiveEvent(int howMany);
 void mus_ok();
 void mus_no();
+void test();
 
 //implementation
 void keyAppend(char key) {
@@ -213,17 +214,15 @@ void loop(void) {
     if (customKey) {
       
       if (customKey == '.') {
-        keyEnter();
+        //keyEnter();
       } else if (customKey == 'C') {
-        keyClear();
+        test();
+        //keyClear();
       } else {
         keyAppend(customKey);
       }
-
-      
     }
   }
-
   
   if (enable_nfc) {
   
@@ -439,32 +438,6 @@ int toneByKey(char key) {
 }
 
 
-void firstSection() {
-  
-  note(NOTE_A4, 500);
-  note(NOTE_A4, 500);    
-  note(NOTE_A4, 500);
-  note(NOTE_F4, 350);
-  note(NOTE_C5, 150);  
-  note(NOTE_A4, 500);
-  note(NOTE_F4, 350);
-  note(NOTE_C5, 150);
-  note(NOTE_A4, 650);
- 
-  delay(500);
- 
-  note(NOTE_E5, 500);
-  note(NOTE_E5, 500);
-  note(NOTE_E5, 500);  
-  note(NOTE_F5, 350);
-  note(NOTE_C5, 150);
-  note(NOTE_GS4, 500);
-  note(NOTE_F4, 350);
-  note(NOTE_C5, 150);
-  note(NOTE_A4, 650);
- 
-  delay(500);
-}
 
 //beep 
 void beep(int note, int duration) {
@@ -476,20 +449,110 @@ void beep(int note, int duration) {
 }
 
 //note only for plaing music
-void note(int note, int duration) {
+void note(unsigned int note) {
 
-  int note_ton = note & 0x3FFF;
-  int note_dur = note & 0xC000;
+  dbgln( "   -   ");
+  dbg("  note  = ");
+  dbgln(note);
+  
+  int note_ton = note & 0x0FFF;
+  int note_dur = (note >> 12) & 7;
+  int note_long = note >> 15;
+
+  dbg(" note_ton = ");
+  dbgln(note_ton);
+  
+  dbg(" note_dur = ");
+  dbgln(note_dur);
+
+  dbg(" note_long = ");
+  dbgln(note_long);
+
+  
+  int tempo = 1024;
+  int duration = 2*tempo;
+  
+  if (note_dur != 0) {
+    duration = duration / (1<<note_dur);
+  }
+  
+  if (note_long) {
+      duration = duration + duration/2;
+  }
+
+  dbg(" duration = ");
+  dbgln(duration);
   
   beep(note_ton, duration);
-  delay(duration*1.1);
-  noteNum++; 
+  delay(duration);
+  
+}
+
+void starwars() {
+
+  note(NOTE_A4|DUR_2);
+  note(NOTE_A4|DUR_2); 
+  note(NOTE_A4|DUR_2);
+  note(NOTE_F4|DURL_4);
+  note(NOTE_C5|DUR_8);  
+  note(NOTE_A4|DUR_2);
+  note(NOTE_F4|DURL_4);
+  note(NOTE_C5|DUR_8);
+  note(NOTE_A4|DURL_2);
+
+  note(NOTE_PAUSE|DURL_4);
+  
+  note(NOTE_E5|DUR_2);
+  note(NOTE_E5|DUR_2);
+  note(NOTE_E5|DUR_2);  
+  note(NOTE_F5|DURL_4);
+  note(NOTE_C5|DUR_8);
+  note(NOTE_GS4|DUR_2);
+  note(NOTE_F4|DURL_4);
+  note(NOTE_C5|DUR_8);
+  note(NOTE_A4|DURL_2);
+ 
+  note(NOTE_PAUSE|DURL_4);
 }
 
 
+void mario(){
+  
+  note(NOTE_C4|DUR_8);
+  
+  note(NOTE_PAUSE|DUR_4);
+  
+  note(NOTE_G3|DUR_8);
+  note(NOTE_PAUSE|DUR_4);
+  
+  note(NOTE_E3|DUR_4);  
+
+  note(NOTE_A3|DURL_8);  
+  note(NOTE_B3|DURL_8);
+  note(NOTE_A3|DURL_8);
+
+  note(NOTE_GS3|DURL_8);
+  note(NOTE_AS3|DURL_8);  
+  
+  note(NOTE_GS3|DURL_8);
+  
+  note(NOTE_G3|DUR_8);
+  note(NOTE_F3|DUR_8);
+
+  note(NOTE_G3|DUR_2);
+    
+}
+
+void test() {
+
+  dbgln("test");      
+  //starwars();
+  mario();
+}
+
 
 int not1[] = {
-  NOTE_G4,NOTE_G4,NO_SOUND,NOTE_G4,NOTE_G4,NO_SOUND,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,
+  NOTE_G4,NOTE_G4,NOTE_PAUSE,NOTE_G4,NOTE_G4,NO_SOUND,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,
    NOTE_B3,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_CS4,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_B3,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_CS4,NOTE_G3,NOTE_C4,NOTE_G3,
    NOTE_E4,NOTE_F4,NOTE_F4,NOTE_F4,NOTE_F4,NOTE_E4,NOTE_E4,NOTE_E4,
    NOTE_E4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_E4,NOTE_E4,NOTE_E4,
@@ -524,7 +587,7 @@ void music(int nots[], int durs[], int count) {
   for (int Note = 0; Note < count; Note++) {
     int duration = 1450/durs[Note];
     int cur_note = nots[Note];
-    note(cur_note,duration);
+    note(cur_note);
   }  
   
   
@@ -541,7 +604,7 @@ void mus1() {
 void mus2() {
   
    digitalWrite(pin_led_red, HIGH);  
-   firstSection();
+   
   digitalWrite(pin_led_green, LOW);
   digitalWrite(pin_led_red, LOW);
    
