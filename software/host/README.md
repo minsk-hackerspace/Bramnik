@@ -3,13 +3,13 @@
 
 ### To run
 ##### Directly
-`~/Bramnik/software/host: ruby host.rb`
+`~/bramnik/software/host: ruby host.rb`
 
 ##### With self-crash monitor as daemon
-`god -c ~/Bramnik/software/host/bramnik.god`
+`god -c ~/bramnik/software/host/bramnik.god`
 
 ##### With self-crash monitor foreground
-`god -c ~/Bramnik/software/host/bramnik.god -D`
+`god -c ~/bramnik/software/host/bramnik.god -D`
 
 ##### Restart with monitor
 `god restart bramnik`
