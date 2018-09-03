@@ -49,9 +49,16 @@ const byte COLS = 3; //three columns
 // consts/variables to throttle same NFC reporting
 uint8_t last_read_uid[32] = { 0, 0, 0, 0, 0, 0, 0 }; // uid of last read NFC label
 unsigned long    last_read_time  = -1; // Time of last successful NFC read
-const   unsigned long read_debounce = 1000000 * 1; // 1 second
-const   unsigned long NFC_data_timeout = 1000000 * 10; // 10 seconds
+const unsigned long read_debounce = 1000000 * 1; // 1 second
+const unsigned long NFC_data_timeout = 1000000 * 10; // 10 seconds
 
+unsigned long NFC_scan_last_time = 0;
+unsigned long NFC_keep_last_time = 0;
+
+const unsigned long NFC_scan_timeout = 20;
+const unsigned long NFC_keep_timeout = 1000 * 3;
+
+const unsigned long KEYS_keep_timeout = 1000 * 3;
 
 /*Master to slave:*/
 
@@ -225,7 +232,10 @@ void loop(void) {
   }
   
   if (enable_nfc) {
-  
+
+    //timeout for NFC read
+    //timeout for NFC clear
+
     uint8_t success;
     uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
     uint8_t uidLength;   
