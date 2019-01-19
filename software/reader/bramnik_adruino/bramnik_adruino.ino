@@ -301,7 +301,7 @@ void loop(void) {
             break;
     };
 
-  const int loopsTooReset = 40;
+  const int loopsTooReset = 20;
   
   if (hasKeypadData) {
     resetKeypadDataLoops ++;
@@ -321,6 +321,7 @@ void loop(void) {
     }
   }
 
+  delay(10);
 
 }
 
