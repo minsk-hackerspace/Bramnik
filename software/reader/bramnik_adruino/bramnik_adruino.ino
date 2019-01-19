@@ -36,8 +36,8 @@ Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
 //#define NOKEYSOUND
 #define SAMEKEYSOUND
 
-int pin_led_green = A0;
-int pin_led_red = A1;
+int pin_led_green = A2;
+int pin_led_red = A3;
 int pin_sound = 2;
 
 int noteNum = 0;
@@ -66,11 +66,14 @@ const unsigned long KEYS_keep_timeout = 1000 * 3;
 /** 0x11 enable NFC reader + disable keypad*/
 /** 0x12 disable NFC reader + enable keypad*/
 /** 0x13 enable NFC reader + enable keypad*/
-/** 0x20 play "access denied"*/
-/** 0x21 play "access granted"*/
-/** 0x30 ask for status*/
-/** 0x31 ask for 32 bytes from NFC*/
-/** 0x32 ask for 32 bytes from keypad*/
+
+/** 0x20 32dec play "access denied"*/
+/** 0x21 33dec play "access granted"*/
+/** 0x22 34dec play "access warn"*/
+
+/** 0x30 48dec ask for status*/
+/** 0x31 49dec ask for 32 bytes from NFC*/
+/** 0x32 50dec ask for 32 bytes from keypad*/
 
 /*slave to master:*/
 
@@ -86,6 +89,7 @@ const uint8_t NFC_MASK=0x01;
 const uint8_t CMD_PLAY = 0x20;
 const uint8_t GRANTED=0x00;
 const uint8_t DENIED=0x01;
+const uint8_t WARNING=0x02;
 
 const uint8_t CMD_ASK = 0x30;
 const uint8_t STATUS=0x00;
@@ -97,16 +101,22 @@ volatile unsigned int cmd_type;
 volatile unsigned int cmd;
 
 
-
 //some reader features
-bool enable_nfc; 
-bool enable_keypad;
+volatile bool enable_nfc; 
+volatile bool enable_keypad;
+
+volatile bool hasNFCData = false;
+volatile bool hasKeypadData = false;
+
+volatile int resetNFCDataLoops = 0;
+volatile int resetKeypadDataLoops = 0;
+
 
 char numberKeys[ROWS][COLS] = {
-    { '7','8','9' },
-    { '4','5','6' },
     { '1','2','3' },
-    { 'C','0','.' }
+    { '4','5','6' },
+    { '7','8','9' },
+    { '*','0','#' }
 };
 
 int toneNfc = NOTE_A4;
@@ -115,22 +125,26 @@ int toneEnter = NOTE_E7;
 int toneClear = NOTE_C3;
 
 
-byte rowPins[ROWS] = {3, 4, 5, 6}; //connect to the row pinouts of the keypad
-byte colPins[COLS] = {7, 8, 9}; //connect to the column pinouts of the keypad
+byte rowPins[ROWS] = {4, 9, 8, 6}; //connect to the row pinouts of the keypad
+byte colPins[COLS] = {5, 3, 7}; //connect to the column pinouts of the keypad
 
 //initialize an instance of class NewKeypad
 Keypad keypad = Keypad( makeKeymap(numberKeys), rowPins, colPins, ROWS, COLS); 
 
-#define KEYBUF_LEN  32
+#define KEYBUF_LEN  8
 char keypadBuffer[KEYBUF_LEN] = {};
 int keypadPos = 0;
-bool keypadEntered = false;
 
 //function declaration
 
 void keypadEvent(KeypadEvent key);
 void requestEvent();
 void receiveEvent(int howMany);
+
+void access_granted();
+void access_denied();
+void access_warning();
+
 void mus_ok();
 void mus_no();
 void test();
@@ -138,7 +152,7 @@ void test();
 //implementation
 void keyAppend(char key) {
   //append keypadBuffer  
-  if(keypadEntered){
+  if(hasKeypadData){
     keyClearMuted();
   }
   if(keypadPos<KEYBUF_LEN){
@@ -151,21 +165,22 @@ void keyAppend(char key) {
 void keyClearMuted() {
   keypadPos = 0;
   memset(keypadBuffer, 0, KEYBUF_LEN);
-  keypadEntered = false;
+  hasKeypadData = false;
 }
 void keyClear() {
+  dbgln("KEY CLEAR");
   //clear keypadBuffer
   keyClearMuted();
-  //beep(toneClear,100);
-  mus_ok();
+  beep(toneClear,100);
+
 }
 
 void keyEnter() {
-  //send keypadBuffer to host
-  keypadEntered = true;
+  dbgln("KEY ENTER ");
+  hasKeypadData = true;
   dbgln(keypadBuffer);
-  //beep(toneEnter,50);
-  mus_no();
+  beep(toneEnter,50);
+
 }
 
 
@@ -204,11 +219,13 @@ void setup(void) {
   nfc.SAMConfig();
 
   Wire.begin(0x68);
+
   Wire.onRequest(requestEvent);
   Wire.onReceive(receiveEvent); 
 
   Serial.println("Waiting for an ISO14443A Card ...");
-  
+
+  test();
 }
 
 
@@ -219,12 +236,12 @@ void loop(void) {
     char customKey = keypad.getKey();
   
     if (customKey) {
-      
-      if (customKey == '.') {
-        //keyEnter();
-      } else if (customKey == 'C') {
-        test();
-        //keyClear();
+      dbg("KEY: ");
+      dbgln(customKey);
+      if (customKey == '#') {
+        keyEnter();
+      } else if (customKey == '*') {
+        keyClear();
       } else {
         keyAppend(customKey);
       }
@@ -243,36 +260,86 @@ void loop(void) {
   
     success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 20);
     if (success) {
+      
       int compare = memcmp(last_read_uid, uid, 7);
-      unsigned long time_passed = micros()-last_read_time;
-      if (0 == compare && time_passed < read_debounce ){ //same NFC device
-  
-          dbgln(time_passed);
-          dbgln(micros()-last_read_time);
+      
+      if (0 == compare){ 
+          //same NFC device
+          dbgln("SAME card");
+          // nothing
           
       } else {
         
-          beep(toneNfc, 30);
-          Serial.println("Found an ISO14443A card");
-          Serial.print("  UID Length: ");Serial.print(uidLength, DEC);Serial.println(" bytes");
-          Serial.print("  UID Value: ");
+          dbgln("Found card");
+          dbg("  UID Value: ");
+          dbgln(uidLength);
+          
           nfc.PrintHex(uid, uidLength);
-          Serial.println("");
-          long tm = fillLastNFC(uid);
-          Serial.println(tm);
+          fillLastNFC(uid);
+          
       }
       // Display some basic information about the card
     }
   }
 
 
+    switch(cmd_type) {
+        case CMD_ENABLE:
+            break;
+        case CMD_PLAY:
+            if (cmd == GRANTED) {
+                access_granted();
+            } else if (cmd == DENIED) {
+                access_denied();
+            } else if (cmd == WARNING) {
+                access_warning();
+            }
+            cmd = 0;
+            cmd_type = 0;
+            break;
+        case CMD_ASK:
+            break;
+    };
+
+  const int loopsTooReset = 40;
+  
+  if (hasKeypadData) {
+    resetKeypadDataLoops ++;
+    //dbgln(resetKeypadDataLoops);
+    if (resetKeypadDataLoops > loopsTooReset) {
+        resetKeypadData();
+        resetKeypadDataLoops = 0;
+    }
+  }
+
+  if (hasNFCData) {
+    resetNFCDataLoops ++;
+    //dbgln(resetNFCDataLoops);
+    if (resetNFCDataLoops > loopsTooReset ) {
+      resetNFCData();
+      resetNFCDataLoops = 0;
+    }
+  }
+
 
 }
 
-long fillLastNFC(uint8_t *newNFC){
+
+
+void fillLastNFC(uint8_t *newNFC){
+    hasNFCData = true;
     memcpy(last_read_uid, newNFC, 7);
-    last_read_time = micros();
-    return last_read_time;
+    beep(toneNfc, 30);
+}
+
+void resetNFCData() {
+    hasNFCData = false;
+    memset(last_read_uid, 0, 7);
+}
+
+
+void resetKeypadData() {
+    keyClearMuted();
 }
 
 
@@ -287,7 +354,7 @@ void requestEvent() {
 
     dbg("cmd: ");
     dbgln(cmd);
-
+    
     switch(cmd_type) {
         case CMD_ENABLE:
             break;
@@ -298,15 +365,19 @@ void requestEvent() {
             switch(cmd){
                 case STATUS:
                     dbgln("ask: STATUS ");
-                    time_since_last_read = micros() - last_read_time;
-                    status = time_since_last_read < NFC_data_timeout ? 1 : 0;
-                    
-                    status |= keypadEntered ? 0x02 : 0;
-                    
-                    dbg("responce: ");
-                    dbgln(status);
-                    Wire.write(status);
-
+                    if (hasNFCData && hasKeypadData) {
+                      dbg("responce: 3");
+                      Wire.write(3);
+                    } else if (hasKeypadData) {
+                      dbg("responce: 2");
+                      Wire.write(2);
+                    } else if (hasNFCData) {
+                      dbg("responce: 1");
+                      Wire.write(1);
+                    } else {
+                      dbg("responce: 0");
+                      Wire.write(0);
+                    }
                 break;
                 case KEYPAD_DATA:
                     dbgln("ask: KEYPAD_DATA ");
@@ -327,16 +398,26 @@ void requestEvent() {
 }
 
 void receiveEvent(int howMany) {
-
-    if (howMany == 0) {
-      dbgln("requestEvent coming ");  
-      return;   
-    }
     
     dbg("receiveEvent ");
-    dbgln(howMany);
+    
+    if (howMany == 0) {
+      dbgln(" requestEvent coming ...");  
+      return;   
+    }
 
-    unsigned int x = Wire.read();    // receive byte as an integer
+    dbg(" howMany = ");
+    dbg(howMany);
+    dbg(" available = ");
+    dbgln(" . ");
+
+    unsigned int x = 0;
+    while (Wire.available()) { // loop through all but the last
+      x = Wire.read(); // receive last byte as int
+      dbg(x);         // print the character
+      dbgln(" . ");
+    }
+
     cmd_type = x & 0xf0;
     cmd = x & 0x0f;
 
@@ -364,19 +445,22 @@ void receiveEvent(int howMany) {
         case CMD_PLAY:
             dbg("CMD Play received: ");
             dbgln(cmd);
-            
-            if (cmd == 0) {
-                dbgln("ACCESS DENIED");
-                mus_no();
-            }
-            if (cmd == 1) {
-                dbgln("ACCESS GRANTED !!!");
-                mus_ok();
-            }            
             break;
         case CMD_ASK:
             dbg("CMD ASK received: ");
             dbgln(cmd);
+
+            if (cmd == 0) {
+                dbgln("Request STATUS");
+            }
+
+            if (cmd == 1) {
+                dbgln("Request NFC");
+            }
+            
+            if (cmd == 2) {
+                dbgln("Request KEYPAD");
+            }
             break;
     };
 }
@@ -395,7 +479,7 @@ void keypadEvent(KeypadEvent key){
     break;
     case RELEASED: {
       dbg("release ");
-      beep(0,0);
+        beep(0,0);
       }
       
     break;
@@ -445,6 +529,52 @@ int toneByKey(char key) {
     return NOTE_D6;
   }
   return 0;
+}
+
+
+void access_granted() {
+  dbgln("ACCESS GRANTED !!!");
+
+  for ( int i = 0 ; i<4 ; i++) {
+      digitalWrite(pin_led_green, HIGH);
+      note(NOTE_C4|DUR_16);      
+      delay(200);      
+      digitalWrite(pin_led_green, LOW);
+      note(NOTE_E4|DUR_16);      
+      delay(200);  
+    }
+  
+}
+
+void access_denied() {
+  dbgln("ACCESS DENIED !!!");
+  digitalWrite(pin_led_red, HIGH);
+  note(NOTE_A2|DUR_1);  
+  delay(1000);
+  digitalWrite(pin_led_red, LOW);  
+}
+
+void access_warning() {
+  dbgln("ACCESS WARNING !!!");
+  note(NOTE_A4|DUR_8);
+  digitalWrite(pin_led_red, HIGH);
+  delay(100);
+  digitalWrite(pin_led_green, HIGH);
+  delay(100);
+  digitalWrite(pin_led_red, LOW);  
+  delay(100);
+  digitalWrite(pin_led_green, LOW);  
+  delay(100);
+  note(NOTE_A4|DUR_8);
+  digitalWrite(pin_led_red, HIGH);
+  delay(100);
+  digitalWrite(pin_led_green, HIGH);
+  delay(100);
+  digitalWrite(pin_led_red, LOW);  
+  delay(100);
+  digitalWrite(pin_led_green, LOW);
+  delay(100);
+
 }
 
 
@@ -498,69 +628,19 @@ void note(unsigned int note) {
   
 }
 
-void starwars() {
 
-  note(NOTE_A4|DUR_2);
-  note(NOTE_A4|DUR_2); 
-  note(NOTE_A4|DUR_2);
-  note(NOTE_F4|DURL_4);
-  note(NOTE_C5|DUR_8);  
-  note(NOTE_A4|DUR_2);
-  note(NOTE_F4|DURL_4);
-  note(NOTE_C5|DUR_8);
-  note(NOTE_A4|DURL_2);
-
-  note(NOTE_PAUSE|DURL_4);
-  
-  note(NOTE_E5|DUR_2);
-  note(NOTE_E5|DUR_2);
-  note(NOTE_E5|DUR_2);  
-  note(NOTE_F5|DURL_4);
-  note(NOTE_C5|DUR_8);
-  note(NOTE_GS4|DUR_2);
-  note(NOTE_F4|DURL_4);
-  note(NOTE_C5|DUR_8);
-  note(NOTE_A4|DURL_2);
- 
-  note(NOTE_PAUSE|DURL_4);
-}
-
-
-void mario(){
-  
-  note(NOTE_C4|DUR_8);
-  
-  note(NOTE_PAUSE|DUR_4);
-  
-  note(NOTE_G3|DUR_8);
-  note(NOTE_PAUSE|DUR_4);
-  
-  note(NOTE_E3|DUR_4);  
-
-  note(NOTE_A3|DURL_8);  
-  note(NOTE_B3|DURL_8);
-  note(NOTE_A3|DURL_8);
-
-  note(NOTE_GS3|DURL_8);
-  note(NOTE_AS3|DURL_8);  
-  
-  note(NOTE_GS3|DURL_8);
-  
-  note(NOTE_G3|DUR_8);
-  note(NOTE_F3|DUR_8);
-
-  note(NOTE_G3|DUR_2);
-    
-}
 
 void test() {
 
   dbgln("test");      
-  //starwars();
-  mario();
+
+  note(NOTE_F4|DURL_4);
+  note(NOTE_C5|DUR_8);  
+  note(NOTE_A4|DUR_2);
+
 }
 
-
+/*
 int not1[] = {
   NOTE_G4,NOTE_G4,NOTE_PAUSE,NOTE_G4,NOTE_G4,NO_SOUND,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,NOTE_G4,
    NOTE_B3,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_CS4,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_B3,NOTE_G3,NOTE_C4,NOTE_G3,NOTE_CS4,NOTE_G3,NOTE_C4,NOTE_G3,
@@ -593,128 +673,23 @@ int dur1[] = {
   4,8,4,8,1
 };
 
+*/
+
 void music(int nots[], int durs[], int count) {
   for (int Note = 0; Note < count; Note++) {
     int duration = 1450/durs[Note];
     int cur_note = nots[Note];
     note(cur_note);
   }  
-  
-  
 } 
 
-void mus1() {
-  
-  digitalWrite(pin_led_green, HIGH);
-  music(not1,dur1,54);
-  digitalWrite(pin_led_green, LOW);
-  digitalWrite(pin_led_red, LOW);
-  
-}
-void mus2() {
-  
-   digitalWrite(pin_led_red, HIGH);  
-   
-  digitalWrite(pin_led_green, LOW);
-  digitalWrite(pin_led_red, LOW);
-   
-}
 
 void mus_ok() {
-   mus1();
+   
 }
 
 void mus_no() {
-   mus2();
+   
 }
 
-/*
-#include <Wire.h>
 
-int led = 13;
-bool on = LOW;
-
-int rd;
-int count;
-int num;
-
-byte i2c_arr_9[9] = {9,1,2,3,4,5,6,7,8};    
-byte i2c_arr_12[12] = {12,1,2,3,4,5,6,7,8,9,10,11};
-byte i2c_arr_32[32] = {32,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92};
-byte i2c_arr_33[33] = {33,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,11};
-
-void setup() {
-  pinMode(led, OUTPUT); 
-
-  
-  rd = 0;
-  count = 0;
-  num = 0;
-  
-  Wire.begin(0x68);
-  Wire.onRequest(requestEvent);
-  Wire.onReceive(receiveEvent); 
-  Serial.begin(115200);          
-  Serial.println(rd);  
-}
-
-void loop() {
-
-  if (count > 0) {
-    on = !on;
-    if (on == false) {
-       count --;
-     }
-  }
-  
-  digitalWrite(led, on);
-  
-  delay(100);
-}
-
-void requestEvent() {
-  
-  Serial.print("rq ");  
-  Serial.println(rd);  
-  
-  if (rd == 1) {
-    Wire.write("hello there!");
-    count = 1;
-  } else if (rd == 2) {
-    Wire.write("This is a sample of a very long string. I suppose it is about 122 (one hundred and twenty two) bytes length. Amazing!!!!!");
-    count = 2;
-  } else if (rd == 9) {
-    Wire.write(i2c_arr_9,9);  
-    count = 3;
-  } else if (rd == 12) {
-    Wire.write(i2c_arr_12,12);  
-    count = 4;    
-  } else if (rd == 32) {
-    Wire.write(i2c_arr_32,32);  
-    count = 5;    
-  } else if (rd == 33) {
-    Wire.write(i2c_arr_33,33);  
-    count = 6;    
-  } else {
-    num++;
-    Wire.write(num);  
-    count = 8;
-  }
-  
-}
-
-void receiveEvent(int howMany) {
-  Serial.print("rc ");
-  Serial.print(howMany);
-  Serial.print(" = ");
-  int x = Wire.read();    // receive byte as an integer
-  Serial.println(x);         // print the integer
-
-  if (x >= 0) {
-    rd = x;
-    count = x;
-  }
-  
-}
-
-*/
