@@ -241,6 +241,7 @@ void loop(void) {
     if (customKey) {
       dbg("KEY: ");
       dbgln(customKey);
+      resetKeypadDataLoops = 0;
       if (customKey == '#') {
         keyEnter();
       } else if (customKey == '*') {
@@ -343,21 +344,24 @@ void updateStatus() {
 void fillLastNFC(uint8_t *newNFC){
     hasNFCData = true;
     memcpy(last_read_uid, newNFC, 7);
+    resetNFCDataLoops = 0;
     beep(toneNfc, 30);
 }
 
 void resetNFCData() {
     dbgln("resetNFCData");
     memset(last_read_uid, 0, 7);
-    hasNFCData = false;
+    resetNFCDataLoops = 0;
+    hasNFCData = false;    
     updateStatus();
 }
 
 
 void resetKeypadData() {
     dbgln("resetKeypadData");
-    keypadPos = 0;
     memset(keypadBuffer, 0, KEYBUF_LEN);
+    keypadPos = 0;
+    resetKeypadDataLoops = 0;
     hasKeypadData = false;
     updateStatus();
 }
@@ -469,7 +473,7 @@ void receiveEvent(int howMany) {
     };
 }
 
-void keypadEvent(KeypadEvent key){
+void keypadEvent(KeypadEvent key) {
   switch (keypad.getState()){
     case PRESSED: {
       dbg("press ");
