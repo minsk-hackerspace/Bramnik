@@ -20,7 +20,7 @@
 #define PN532_SS   (10)
 #define PN532_MISO (12)
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
     #define dbg(a) Serial.print(a)
@@ -28,13 +28,15 @@
 #else
     #define dbg(a) 
     #define dbgln(a)
-
 #endif
 
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
 
 //#define NOKEYSOUND
 #define SAMEKEYSOUND
+
+
+int pin_door = A1;
 
 int pin_led_green = A2;
 int pin_led_red = A3;
@@ -45,43 +47,43 @@ int noteNum = 0;
 const byte ROWS = 4; //four rows
 const byte COLS = 3; //three columns
 
+byte rowPins[ROWS] = {4, 9, 8, 6}; //connect to the row pinouts of the keypad
+byte colPins[COLS] = {5, 3, 7}; //connect to the column pinouts of the keypad
+
+char numberKeys[ROWS][COLS] = {
+    { '1','2','3' },
+    { '4','5','6' },
+    { '7','8','9' },
+    { '*','0','#' }
+};
+
+
+
+#define KEYBUF_LEN  8
+char keypadBuffer[KEYBUF_LEN] = {0,0,0,0,0,0,0,0};
+int keypadPos = 0;
 
 // consts/variables to throttle same NFC reporting
-uint8_t last_read_uid[32] = { 0, 0, 0, 0, 0, 0, 0 }; // uid of last read NFC label
-unsigned long    last_read_time  = -1; // Time of last successful NFC read
-const unsigned long read_debounce = 1000000 * 1; // 1 second
-const unsigned long NFC_data_timeout = 1000000 * 10; // 10 seconds
+uint8_t last_read_uid[8] = {0,0,0,0,0,0,0,0}; // uid of last read NFC label
 
-unsigned long NFC_scan_last_time = 0;
-unsigned long NFC_keep_last_time = 0;
 
-const unsigned long NFC_scan_timeout = 20;
-const unsigned long NFC_keep_timeout = 1000 * 3;
 
-const unsigned long KEYS_keep_timeout = 1000 * 3;
+//some reader features
+volatile bool enable_nfc; 
+volatile bool enable_keypad;
 
-/*Master to slave:*/
+volatile bool hasNFCData = false;
+volatile bool hasKeypadData = false;
 
-/** 0x10 disable NFC reader + disable keypad*/
-/** 0x11 enable NFC reader + disable keypad*/
-/** 0x12 disable NFC reader + enable keypad*/
-/** 0x13 enable NFC reader + enable keypad*/
+volatile bool doorOpen = false;
 
-/** 0x20 32dec play "access denied"*/
-/** 0x21 33dec play "access granted"*/
-/** 0x22 34dec play "access warn"*/
 
-/** 0x30 48dec ask for status*/
-/** 0x31 49dec ask for 32 bytes from NFC*/
-/** 0x32 50dec ask for 32 bytes from keypad*/
+volatile int resetNFCDataLoops = 0;
+volatile int resetKeypadDataLoops = 0;
 
-/*slave to master:*/
+const int loopsTooReset = 20;
 
-/** 0 bytes when no ask before request*/
-/** 1 byte of status when 0x30 asked (0 = nothing happens, 1 = has NCF data , 2 = has keypad data)*/
-/** 32 bytes from NFC when 0x31 asked*/
-/** 32 bytes from Keypad when 0x32 asked*/
-
+//commands for i2c communication protocol
 const uint8_t CMD_ENABLE = 0x10;
 const uint8_t KEYPAD_MASK=0x02;
 const uint8_t NFC_MASK=0x01;
@@ -100,24 +102,31 @@ const uint8_t KEYPAD_DATA=0x02;
 volatile unsigned int cmd_type;
 volatile unsigned int cmd;
 
+volatile byte r_status;
 
-//some reader features
-volatile bool enable_nfc; 
-volatile bool enable_keypad;
+/*Master to slave:*/
 
-volatile bool hasNFCData = false;
-volatile bool hasKeypadData = false;
+/** 0x10 disable NFC reader + disable keypad*/
+/** 0x11 enable NFC reader + disable keypad*/
+/** 0x12 disable NFC reader + enable keypad*/
+/** 0x13 enable NFC reader + enable keypad*/
 
-volatile int resetNFCDataLoops = 0;
-volatile int resetKeypadDataLoops = 0;
+/** 0x20 32dec play "access granted"*/
+/** 0x21 33dec play "access denied"*/
+/** 0x22 34dec play "access warn"*/
+
+/** 0x30 48dec ask for status*/
+/** 0x31 49dec ask for 32 bytes from NFC*/
+/** 0x32 50dec ask for 32 bytes from keypad*/
+
+/*slave to master:*/
+
+/** 0 bytes when no ask before request*/
+/** 1 byte of status when 0x30 asked (0 = nothing happens, 1 = has NCF data , 2 = has keypad data, 4 = door open)*/
+/** 32 bytes from NFC when 0x31 asked*/
+/** 32 bytes from Keypad when 0x32 asked*/
 
 
-char numberKeys[ROWS][COLS] = {
-    { '1','2','3' },
-    { '4','5','6' },
-    { '7','8','9' },
-    { '*','0','#' }
-};
 
 int toneNfc = NOTE_A4;
 int toneKey = NOTE_D6;
@@ -125,17 +134,17 @@ int toneEnter = NOTE_E7;
 int toneClear = NOTE_C3;
 
 
-byte rowPins[ROWS] = {4, 9, 8, 6}; //connect to the row pinouts of the keypad
-byte colPins[COLS] = {5, 3, 7}; //connect to the column pinouts of the keypad
 
 //initialize an instance of class NewKeypad
 Keypad keypad = Keypad( makeKeymap(numberKeys), rowPins, colPins, ROWS, COLS); 
 
-#define KEYBUF_LEN  8
-char keypadBuffer[KEYBUF_LEN] = {};
-int keypadPos = 0;
 
 //function declaration
+void updateStatus();
+
+void resetNFCData();
+void resetKeypadData();
+
 
 void keypadEvent(KeypadEvent key);
 void requestEvent();
@@ -153,7 +162,7 @@ void test();
 void keyAppend(char key) {
   //append keypadBuffer  
   if(hasKeypadData){
-    keyClearMuted();
+    resetKeypadData();
   }
   if(keypadPos<KEYBUF_LEN){
     keypadBuffer[keypadPos++] = key;
@@ -162,25 +171,18 @@ void keyAppend(char key) {
   }
 }
 
-void keyClearMuted() {
-  keypadPos = 0;
-  memset(keypadBuffer, 0, KEYBUF_LEN);
-  hasKeypadData = false;
-}
 void keyClear() {
   dbgln("KEY CLEAR");
   //clear keypadBuffer
-  keyClearMuted();
+  resetKeypadData();
   beep(toneClear,100);
-
 }
 
 void keyEnter() {
-  dbgln("KEY ENTER ");
+  dbgln("KEY ENTER");
   hasKeypadData = true;
   dbgln(keypadBuffer);
   beep(toneEnter,50);
-
 }
 
 
@@ -189,7 +191,8 @@ void setup(void) {
   pinMode(pin_led_green, OUTPUT);
   pinMode(pin_led_red, OUTPUT);
   pinMode(pin_sound, OUTPUT);
-
+  pinMode(pin_door, INPUT_PULLUP);
+  
   digitalWrite(pin_led_green, LOW);
   digitalWrite(pin_led_red, LOW);
   digitalWrite(pin_sound, LOW);
@@ -223,7 +226,7 @@ void setup(void) {
   Wire.onRequest(requestEvent);
   Wire.onReceive(receiveEvent); 
 
-  Serial.println("Waiting for an ISO14443A Card ...");
+  Serial.println("Run");
 
   test();
 }
@@ -282,26 +285,25 @@ void loop(void) {
     }
   }
 
+  //react on play command
+  switch(cmd_type) {
+      case CMD_ENABLE:
+          break;
+      case CMD_PLAY:
+          if (cmd == GRANTED) {
+              access_granted();
+          } else if (cmd == DENIED) {
+              access_denied();
+          } else if (cmd == WARNING) {
+              access_warning();
+          }
+          cmd = 0;
+          cmd_type = 0;
+          break;
+      case CMD_ASK:
+          break;
+  };
 
-    switch(cmd_type) {
-        case CMD_ENABLE:
-            break;
-        case CMD_PLAY:
-            if (cmd == GRANTED) {
-                access_granted();
-            } else if (cmd == DENIED) {
-                access_denied();
-            } else if (cmd == WARNING) {
-                access_warning();
-            }
-            cmd = 0;
-            cmd_type = 0;
-            break;
-        case CMD_ASK:
-            break;
-    };
-
-  const int loopsTooReset = 20;
   
   if (hasKeypadData) {
     resetKeypadDataLoops ++;
@@ -321,11 +323,22 @@ void loop(void) {
     }
   }
 
+  doorOpen = digitalRead(pin_door);
+  
+  updateStatus();
+  dbgln(r_status);
   delay(10);
 
 }
 
 
+void updateStatus() {
+  //update reader status
+  r_status = 0;
+  r_status = r_status | hasNFCData << 0;
+  r_status = r_status | hasKeypadData << 1;
+  r_status = r_status | doorOpen << 2;  
+}
 
 void fillLastNFC(uint8_t *newNFC){
     hasNFCData = true;
@@ -334,27 +347,30 @@ void fillLastNFC(uint8_t *newNFC){
 }
 
 void resetNFCData() {
-    hasNFCData = false;
+    dbgln("resetNFCData");
     memset(last_read_uid, 0, 7);
+    hasNFCData = false;
+    updateStatus();
 }
 
 
 void resetKeypadData() {
-    keyClearMuted();
+    dbgln("resetKeypadData");
+    keypadPos = 0;
+    memset(keypadBuffer, 0, KEYBUF_LEN);
+    hasKeypadData = false;
+    updateStatus();
 }
 
+
+void requestEventD() {
+    dbgln("requestEventD");
+    Wire.write("lol kek 123456");
+}
 
 void requestEvent() {
 
     dbgln("requestEvent");
-    uint8_t status;
-    unsigned long time_since_last_read;
-
-    dbg("cmd_type: ");
-    dbgln(cmd_type);
-
-    dbg("cmd: ");
-    dbgln(cmd);
     
     switch(cmd_type) {
         case CMD_ENABLE:
@@ -362,34 +378,23 @@ void requestEvent() {
         case CMD_PLAY:
             break;
         case CMD_ASK:
-            dbgln("CMD_ASK");
             switch(cmd){
                 case STATUS:
                     dbgln("ask: STATUS ");
-                    if (hasNFCData && hasKeypadData) {
-                      dbg("responce: 3");
-                      Wire.write(3);
-                    } else if (hasKeypadData) {
-                      dbg("responce: 2");
-                      Wire.write(2);
-                    } else if (hasNFCData) {
-                      dbg("responce: 1");
-                      Wire.write(1);
-                    } else {
-                      dbg("responce: 0");
-                      Wire.write(0);
-                    }
+                    Wire.write(r_status);
+                    dbgln(r_status);
                 break;
+                
                 case KEYPAD_DATA:
-                    dbgln("ask: KEYPAD_DATA ");
                     Wire.write(keypadBuffer, keypadPos);
-                    keyClearMuted();
+                    resetKeypadData();
+                    dbgln("ask: KEYPAD_DATA ");
                 break;
 
                 case NFC_DATA:
-                    dbgln("ask: NFC_DATA ");
                     Wire.write(last_read_uid, 7);
-                    last_read_time = 0;
+                    resetNFCData();
+                    dbgln("ask: NFC_DATA ");
                 break;
             };
             break;
@@ -408,16 +413,14 @@ void receiveEvent(int howMany) {
     }
 
     dbg(" howMany = ");
-    dbg(howMany);
-    dbg(" available = ");
-    dbgln(" . ");
+    dbgln(howMany);
 
     unsigned int x = 0;
     while (Wire.available()) { // loop through all but the last
       x = Wire.read(); // receive last byte as int
-      dbg(x);         // print the character
-      dbgln(" . ");
     }
+
+    dbgln(x);
 
     cmd_type = x & 0xf0;
     cmd = x & 0x0f;
@@ -498,8 +501,8 @@ int toneByKey(char key) {
 #endif  
     
   switch (key){
-    case '.':
-    case 'C':
+    case '*':
+    case '#':
     return 0;
   }
     
