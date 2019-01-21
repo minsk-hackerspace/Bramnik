@@ -13,12 +13,14 @@
 1. pip install -r requirements.txt
 
 # run
+
 '''
 env/bin/python host.py
 '''
 
 #install as service (systemd)
-'''
+
+'''bash
 sudo systemctl edit --force bramnik
 # fill it with contents of service/bramnik.service
 # fix paths if necessary
