@@ -3,6 +3,9 @@ import codecs
 hexify = codecs.getencoder('hex')
 import traceback
 
+import argparse
+_LOG_LEVEL_STRINGS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
+
 import logging
 #logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 #logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
@@ -11,7 +14,7 @@ logging.basicConfig(
             format="%(asctime)s %(name)s %(levelname)-8s %(thread)d %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S")
 
-logger = logging.getLogger("bramnik")
+logger = None
 
 from smbus2 import SMBus, i2c_msg, SMBusWrapper
 #from smbus import SMBus
@@ -61,10 +64,18 @@ def open_door():
     time.sleep(0.1)
     GPIO.output(DOOR_GPIO_PIN, 0)
 
+# arg parsing
 
+def _log_level_string_to_int(log_level_string):
+    if not log_level_string in _LOG_LEVEL_STRINGS:
+        message = 'invalid choice: {0} (choose from {1})'.format(log_level_string, _LOG_LEVEL_STRINGS)
+        raise argparse.ArgumentTypeError(message)
+
+    log_level_int = getattr(logging, log_level_string, logging.INFO)
+    assert isinstance(log_level_int, int)
+    return log_level_int
 # logic
 def read_status():
-    #return bytearray([1])
     write(STATUS)
     time.sleep(0.1)
     s = read(1)
@@ -122,6 +133,27 @@ def main_loop():
         time.sleep(delay)
 
 
+def main():
+    global logger
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--loglevel',
+                        default='INFO',
+                        dest='loglevel',
+                        type=_log_level_string_to_int,
+                        nargs='?',
+                        help='Set the logging output level. {0}'.format(_LOG_LEVEL_STRINGS))
+    parsed_args = parser.parse_args()
+    logger = logging.getLogger("bramnik")
+    logger.setLevel(parsed_args.loglevel)
 
 
-main_loop()
+
+    main_loop()
+
+
+
+
+
+if __name__ == '__main__':
+    main()
