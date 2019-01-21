@@ -4,8 +4,13 @@ hexify = codecs.getencoder('hex')
 import traceback
 
 import logging
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+#logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 #logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
+logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s %(name)s %(levelname)-8s %(thread)d %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S")
+
 logger = logging.getLogger("bramnik")
 
 from smbus2 import SMBus, i2c_msg, SMBusWrapper
@@ -100,10 +105,11 @@ def main_loop():
         try:
             logger.debug("loop")
             s = read_status()
+            s = s[0]
             logger.info("status: %s", s)
-            if s==[1]:
+            if s&1: # lower bit means reader has NFC data
                 check_nfc()
-            if s==[2]:
+            if s&2: # second bit means reader has code data
                 check_code()
 
         except Exception as e:
