@@ -1,0 +1,8 @@
+cffi==1.11.5
+Click==7.0
+idna==2.2
+pyasn1==0.1.9
+pycparser==2.19
+RPi.GPIO==0.6.5
+six==1.10.0
+smbus2==0.2.3
