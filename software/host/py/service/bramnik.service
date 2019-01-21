@@ -1,0 +1,13 @@
+[Unit]
+Description=Bramnik
+
+[Service]
+EnvironmentFile=/etc/bramnik/bramnik.env
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Bramnik/software/host/py
+ExecStart=/home/pi/Bramnik/software/host/py/env/bin/python host.py --loglevel $BRAMNIK_LOGLEVEL
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
