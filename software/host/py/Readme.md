@@ -14,13 +14,13 @@
 
 # run
 
-'''
+```
 env/bin/python host.py
-'''
+```
 
 #install as service (systemd)
 
-'''bash
+```bash
 sudo systemctl edit --force bramnik
 # fill it with contents of service/bramnik.service
 # fix paths if necessary
@@ -30,4 +30,4 @@ sudo nano /etc/bramnik/bramnik.env
 sudo systemctl start bramnik # start bramnikright now
 sudo systemctl enable bramnik # start bramnik at system start
 
-'''
+```
