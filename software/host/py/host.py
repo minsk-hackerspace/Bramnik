@@ -1,7 +1,9 @@
 import sys
 import codecs
 hexify = codecs.getencoder('hex')
+import datetime
 import traceback
+from models import *
 
 import argparse
 _LOG_LEVEL_STRINGS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
@@ -84,16 +86,39 @@ def read_status():
 # reads NFC and checks if it is valid
 def check_nfc():
     logger.debug("checking nfc")
+
     write(READ_NFC)
     time.sleep(0.1)
-    s = read(16)
-    logger.warning("checking nfc: %s", s)
-    if s[:3] == [131, 78, 213]:
+    s = read(4)
+
+    nfc_str = ''.join('{:02x}'.format(x) for x in s)
+    logger.warning("checking nfc: %s", nfc_str)
+
+    try:
+        cards = Card.select().join(User).where(Card.card_id == nfc_str)
+        if len(cards)==0:
+            raise Exception("Card has no valid user")
+        card = cards[0]
+        logger.warning("checking user %s", card.user_id.name)
+        if card.user_id.valid_till < datetime.datetime.now():
+            raise Exception("User exists but has no access")
         open_door()
         write(PLAY_GRANTED)
-    else:
-        logger.warning("access denied for: %s", s)
+    except Exception as e:
+        logger.error("unauthorized card read: %s", nfc_str)
+        logger.error(traceback.format_exc())
         write(PLAY_DENIED)
+
+
+
+
+
+    #if s[:3] == [131, 78, 213]:
+    #    open_door()
+    #    write(PLAY_GRANTED)
+    #else:
+    #    logger.warning("access denied for: %s", s)
+    #    write(PLAY_DENIED)
 
 # reads code and checks if it is valid
 def check_code():
@@ -148,6 +173,7 @@ def main():
     logger.setLevel(parsed_args.loglevel)
 
 
+    db.connect()
 
     main_loop()
 

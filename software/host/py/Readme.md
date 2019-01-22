@@ -1,45 +1,35 @@
 
-# Initial install (system packages)
+# Initial Install
+1. sudo apt-get install python-pip
+1. sudo apt-get install python3-smbus
+1. pip install virtualenv
+1. sudo /usr/bin/easy_install virtualenv
+1. cd <project_path>
 
-```bash
-sudo apt-get install python-pip
-sudo pip install virtualenv
-sudo /usr/bin/easy_install virtualenv
-```
+# install what's needed
+1. cd <project_path>
+1. virtualenv -p python3 env
+1. source env/bin/activate
+1. pip install -r requirements.txt
 
-# Install required python packages (to virtual env)
+# run
+'''
+env/bin/python host.py
+'''
 
-``` bash
-cd <project_path>
-virtualenv -p python3 env
-source env/bin/activate
-pip install -r requirements.txt
-```
-
-# Run (for development and/or debug)
-
-```bash
-env/bin/python host.py # --loglevel DEBUG # as optional arg
-
-# or using virtualenv activation:
-
-source env/bin/activate # once at session start
-python host.py # --loglevel DEBUG # as optional arg
-
-```
-
-
-
-# How to install as service (systemd)
-
-```bash
+#install as service (systemd)
+'''
 sudo systemctl edit --force bramnik
 # fill it with contents of service/bramnik.service
 # fix paths if necessary
 sudo mkdir /etc/bramnik
 sudo nano /etc/bramnik/bramnik.env
 #fill it with service/bramnik.env
-sudo systemctl start bramnik # start bramnik right now
+sudo systemctl start bramnik # start bramnikright now
 sudo systemctl enable bramnik # start bramnik at system start
 
-```
+'''
+
+
+# Todo
+* Make date comparison in UTC
