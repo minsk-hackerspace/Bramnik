@@ -125,14 +125,32 @@ def check_code():
     logger.debug("checking code")
     write(READ_KEYPAD)
     time.sleep(0.1)
-    s = read(16)
+    s = read(8)
     logger.warning("checking code: %s", s)
-    if s[:4] == [49,50,51,52]: # 1,2,3,4 on keypad
+
+    code_str = ''.join(map(chr, s[:6]))
+
+    try:
+        codes = Code.select().where(Code.code == code_str)
+        if len(codes)==0:
+            raise Exception("Intruder alert! Wrong code")
+        code = codes[0]
+        if code.valid_till < datetime.datetime.now():
+            raise Exception("Code exists but expired")
+        logger.error("opening door with code %s", code_str)
         open_door()
         write(PLAY_GRANTED)
-    else:
-        logger.warning("access denied for: %s", s)
+    except Exception as e:
+        logger.error("unauthorized card read: %s", code_str)
+        logger.error(traceback.format_exc())
         write(PLAY_DENIED)
+
+    #if s[:4] == [49,50,51,52]: # 1,2,3,4 on keypad
+    #    open_door()
+    #    write(PLAY_GRANTED)
+    #else:
+    #    logger.warning("access denied for: %s", s)
+    #    write(PLAY_DENIED)
 
 def main_loop():
     logger.warning("starting main loop")

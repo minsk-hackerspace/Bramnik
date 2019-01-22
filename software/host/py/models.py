@@ -20,6 +20,7 @@ class Code(BaseModel):
   authorized_by = ForeignKeyField(User, backref='given_codes')
   valid_till = DateTimeField()
   comment = TextField()
+  code = TextField()
 
 class Card(BaseModel):
   class Meta:

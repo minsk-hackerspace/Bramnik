@@ -46,10 +46,13 @@ def emit(authorized_by, ttl, comment, account_id):
     if len(users) == 0:
         logger.error("Emiting code by unknown user")
         return
-    code = ''.join([random.choice(string.digits) for _ in range(13)])
+
+    code = ''.join([random.choice(string.digits) for _ in range(6)])
     valid_till = datetime.now() + timedelta(minutes=ttl)
+
     Code.create(user_id=users[0], code=code, valid_till=valid_till, authorized_by_id=authorized_by, comment=comment)
-    logger.info("Code for %s: %s", users[0].name, code)
+
+    logger.error("Created code by %s: %s for %s", users[0].name, code, account_id)
 
 # list users
 # list cards
