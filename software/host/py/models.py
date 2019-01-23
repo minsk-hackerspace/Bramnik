@@ -16,7 +16,7 @@ class User(BaseModel):
 class Code(BaseModel):
   class Meta:
     db_table = 'codes'
-  user_id = ForeignKeyField(User, backref='codes')
+  user_id = ForeignKeyField(User, null=True, backref='codes')
   authorized_by = ForeignKeyField(User, backref='given_codes')
   valid_till = DateTimeField()
   comment = TextField()
