@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from models import *
 import logging
 logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s %(name)s %(levelname)-8s %(thread)d %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S")
 
@@ -13,7 +13,7 @@ logger = logging.getLogger("bramnik")
 
 
 
-@click.group()
+@click.group(help="use bramnik_mgr COMMAND --help to get more help")
 def cli():
     pass
 
@@ -31,6 +31,16 @@ def add(account_id, card_id):
         return
     Card.create(user_id=users[0], card_id=card_id)
     logger.debug("user: %s, card %s", users[0], card_id)
+
+@card.command(help="List all cards in system")
+def list():
+    print("card list:")
+    cards = Card.select().join(User)
+    print("{:4} | {:10} | {:22} | {}".format("id","number","owner","valid till"))
+    for c in cards:
+        print("{:4} | {:10} | {:22} | {}".format(c.id, c.card_id, c.user_id.name, c.user_id.valid_till))
+
+
 
 @cli.group()
 def code():
@@ -53,6 +63,10 @@ def emit(authorized_by, ttl, comment, account_id):
     Code.create(user_id=users[0], code=code, valid_till=valid_till, authorized_by_id=authorized_by, comment=comment)
 
     logger.error("Created code by %s: %s for %s", users[0].name, code, account_id)
+
+@code.command()
+def list():
+    print("code list")
 
 # list users
 # list cards
