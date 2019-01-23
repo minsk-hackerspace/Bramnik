@@ -1,6 +1,9 @@
+#!/usr/bin/env python
+
 import click
 import string
 import random
+import json
 from datetime import datetime, timedelta
 from models import *
 import logging
@@ -16,6 +19,33 @@ logger = logging.getLogger("bramnik")
 @click.group(help="use bramnik_mgr COMMAND --help to get more help")
 def cli():
     pass
+
+@cli.group()
+def user():
+    pass
+
+@user.command(help="Sync user list with json file from site")
+@click.argument("file_name")
+def sync(file_name):
+    created_count = 0
+    with open(file_name) as f:
+        hackers = json.load(f)
+        for hacker in hackers:
+            name_parts = [hacker["first_name"], hacker["last_name"]]
+            name = " ".join([x.strip() for x in name_parts if x is not None])
+            user, created = User.get_or_create(account_id=hacker["id"], defaults={"name": name, "valid_till": datetime.now()})
+            created_count = created_count + 1 if created else 0
+    print("created", created_count, "users")
+
+@user.command(help="List all users in system")
+def list():
+    print("user list:")
+    users = User.select()
+    columns = "{:4} | {:4} | {:22} | {}"
+    print(columns.format("id","account_id","name","valid till"))
+    for u in users:
+        print(columns.format(u.id, u.account_id, u.name, u.valid_till))
+
 
 @cli.group()
 def card():
@@ -72,7 +102,7 @@ def emit(authorized_by, ttl, comment, user_id):
 
     Code.create(user_id=user, code=code, valid_till=valid_till, authorized_by_id=authorized_by_user, comment=comment)
 
-    logger.error("Created code by %s: %s for %s", authorized_by_user.name, code, user.name if user else "(guest)")
+    print("code by {}: {} for {}".format(authorized_by_user.name, code, user.name if user else "(guest)"))
 
 @code.command()
 def list(help="List all codes in system"):
