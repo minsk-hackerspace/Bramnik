@@ -11,7 +11,8 @@ Just header board for Ras perry Pi features:
 Raspi Header Scheme:
 -------
 
-![](https://github.com/minsk-hackerspace/Bramnik/raw/master/hardware/reader_header/rh.png)
+
+![](https://github.com/minsk-hackerspace/Bramnik/blob/master/hardware/reader_header/h2.png)
 
 
 Protocol:
