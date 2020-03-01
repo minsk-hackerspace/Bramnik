@@ -16,12 +16,14 @@
 #define PIN_LOCK 9
 #define PIN_ONBOARDLED 13
 
-#define CMD_BEEP       (1<<0)
-#define CMD_GREENLED   (1<<1)
-#define CMD_OPEN       (1<<2)
-#define CMD_DENY       (1<<3)
-#define CMD_READER_ON  (1<<4)
-#define CMD_READER_OFF (1<<5)
+#define CMD_BEEP       (1<<1)
+#define CMD_GREENLED   (1<<2)
+#define CMD_READER_EN  (1<<3)
+#define CMD_OPEN       (1<<4)
+#define CMD_DENY       (1<<5)
+
+uint8_t hostCommandToExecute = 0;
+
 
 // The object that handles the wiegand protocol
 Wiegand wiegand;
@@ -57,6 +59,8 @@ bool keypadData_HARDCODED_PASS_CORRECT = false;
 uint8_t keypadDataIdx = 0;
 uint8_t keypadDataTiks = 0;
 #define MAX_KEY_WAIT_TICKS 20
+
+
 
 void keypadAddKey(uint8_t key) {
   
@@ -177,6 +181,8 @@ void accessGrant() {
 
 void enableReader(bool enable) {
 
+  //TODO: create additional pin for power on-off 
+  
   if (readerEnabled == true && enable == false) {
     //disable
     wiegand.flushNow();
@@ -271,7 +277,25 @@ void loop() {
   } else {
     keypadDataTiks ++;
   }
-  
+
+  if (hostCommandToExecute) {
+    digitalWrite(PIN_BEEP, hostCommandToExecute & CMD_BEEP);
+    digitalWrite(PIN_GREENLED, hostCommandToExecute & CMD_GREENLED);
+
+    bool reader_enable = hostCommandToExecute & CMD_READER_EN;
+    enableReader(reader_enable);
+    
+    if (hostCommandToExecute & CMD_OPEN) {
+       accessGrant();
+    }
+   
+    if (hostCommandToExecute & CMD_DENY) {
+       accessDeny();
+    }
+       
+   hostCommandToExecute = 0; 
+  }
+
 
   delay(100);
 }
@@ -282,8 +306,9 @@ void i2c_receive_cb(int)
 
   while (Wire.available()) {
     cmd = Wire.read();
-    digitalWrite(PIN_BEEP, cmd & CMD_BEEP);
-    digitalWrite(PIN_GREENLED, cmd & CMD_GREENLED);
+    if (cmd) {
+      hostCommandToExecute = 0x01 | cmd;
+    }
   }
 }
 
@@ -308,8 +333,9 @@ void i2c_request_cb()
   ev.data[3] = 0xEF;
 */
   Wire.write((const char *)&ev, sizeof(ev));
-  if (EVENTS_COUNT() == 0)
+  if (EVENTS_COUNT() == 0) {
     digitalWrite(PIN_INT, 1);
+  }
 }
 
 // When any of the pins have changed, update the state of the wiegand library
