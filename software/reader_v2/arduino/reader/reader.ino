@@ -30,9 +30,9 @@ Wiegand wiegand;
 
 enum reader_event_type {
   EVENT_CARD = 0,
-  EVENT_ERROR = 1,
-  EVENT_STATE = 2,
-  EVENT_CODE = 3,
+  EVENT_CODE = 1,
+  EVENT_ERROR = 2,
+  EVENT_STATE = 3,
   EVENT_DOOR = 4,
   EVENT_NODATA = 0xfe,
 };
@@ -95,16 +95,15 @@ void keypadClear() {
     keypadData[i] = 0xFF;
   }
   keypadDataIdx = 0;
-  Serial.println(" > key clear ");
 }
 
 void keypadFlush() {
-  Serial.print(" > key buff : ");
-  for (int i=0; i<4; i++) {
-    Serial.print(keypadData[i] >> 4, 16);
-    Serial.print(keypadData[i] & 0xF, 16);
-  }
-  Serial.println();
+//  Serial.print(" > key buff : ");
+//  for (int i=0; i<4; i++) {
+//    Serial.print(keypadData[i] >> 4, 16);
+//    Serial.print(keypadData[i] & 0xF, 16);
+//  }
+//  Serial.println();
 
   if (memcmp(keypadData, keypadData_HARDCODED_PASS, 4) == 0) {
     keypadData_HARDCODED_PASS_CORRECT = true;
@@ -112,7 +111,7 @@ void keypadFlush() {
 
   struct reader_event ev;
   ev.event = EVENT_CODE;
-  ev.param = 4;
+  ev.param = 32;
   ev.data[0] = keypadData[0];
   ev.data[1] = keypadData[1];
   ev.data[2] = keypadData[2];
@@ -279,8 +278,11 @@ void loop() {
   }
 
   if (hostCommandToExecute) {
-    digitalWrite(PIN_BEEP, hostCommandToExecute & CMD_BEEP);
-    digitalWrite(PIN_GREENLED, hostCommandToExecute & CMD_GREENLED);
+    Serial.print("hostCommandToExecute :");
+    Serial.println(hostCommandToExecute);
+    
+    digitalWrite(PIN_BEEP, !(hostCommandToExecute & CMD_BEEP));
+    digitalWrite(PIN_GREENLED, !(hostCommandToExecute & CMD_GREENLED));
 
     bool reader_enable = hostCommandToExecute & CMD_READER_EN;
     enableReader(reader_enable);
