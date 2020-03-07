@@ -3,6 +3,7 @@
 ```bash
 sudo apt-get install python-pip
 sudo apt-get install python3-smbus
+sudo apt-get install python3-dev
 pip install virtualenv
 sudo /usr/bin/easy_install virtualenv
 cd <project_path>
@@ -13,7 +14,7 @@ cd <project_path>
 cd <project_path>
 virtualenv -p python3 env
 source env/bin/activate
-pip install -r requirements.txt
+pip install -r software/host/requirements.txt
 ```
 
 # run
