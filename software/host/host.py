@@ -9,8 +9,6 @@ import argparse
 _LOG_LEVEL_STRINGS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
 
 import logging
-#logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-#logging.basicConfig(stream=sys.stdout, level=logging.WARNING)
 logging.basicConfig(
             level=logging.DEBUG,
             format="%(asctime)s %(name)s %(levelname)-8s %(thread)d %(message)s",
@@ -19,37 +17,35 @@ logging.basicConfig(
 logger = None
 
 from smbus2 import SMBus, i2c_msg, SMBusWrapper
-#from smbus import SMBus
 bus = SMBus(1) # 0 indicates /dev/i2c-0
 
 import time
-import RPi.GPIO as GPIO
-
-
-
 
 # I2C consts
-address = 0x68
+address = 0x06
 offset = 0
 
 # Constants
 NORMAL_DELAY = 1
 EXCEPTION_DELAY = 2
-# commands
-PLAY_GRANTED = 0x20
-PLAY_DENIED = 0x21
-STATUS = 0x30
-READ_NFC = 0x31
-READ_KEYPAD = 0x32
 
-# HW consts
-DOOR_GPIO_PIN = 17  #BCM.17
+# commands from WG card reader
+EVENT_CARD_ID = 0
+EVENT_CODE    = 1
+EVENT_ERROR   = 2
+EVENT_STATE   = 3
+EVENT_DOOR    = 4
+EVENT_NODATA  = 0xfe
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(DOOR_GPIO_PIN, GPIO.OUT)
-
+# commands to WG card reader
+CMD_BEEP       = (1<<1)
+CMD_GREENLED   = (1<<2)
+CMD_READER_EN  = (1<<3)
+CMD_OPEN       = (1<<4)
+CMD_DENY       = (1<<5)
 
 # I2C low level
+# ---------------------------------------------------------
 def read(num):
     #with SMBusWrapper(1) as bus:
     #msg = [bus.read_byte(address) for x in range(0,num)]
@@ -60,14 +56,17 @@ def read(num):
 def write(command):
     #with SMBusWrapper(1) as bus:
     bus.write_byte(address, command)
+
 def open_door():
     logger.warning("Openning door")
-    GPIO.output(DOOR_GPIO_PIN, 1)
-    time.sleep(0.1)
-    GPIO.output(DOOR_GPIO_PIN, 0)
+    write(CMD_GREENLED|CMD_OPEN)
+
+def deny_access():
+    logger.warning("Deny access")
+    write(CMD_DENY)
 
 # arg parsing
-
+# ---------------------------------------------------------
 def _log_level_string_to_int(log_level_string):
     if not log_level_string in _LOG_LEVEL_STRINGS:
         message = 'invalid choice: {0} (choose from {1})'.format(log_level_string, _LOG_LEVEL_STRINGS)
@@ -76,22 +75,33 @@ def _log_level_string_to_int(log_level_string):
     log_level_int = getattr(logging, log_level_string, logging.INFO)
     assert isinstance(log_level_int, int)
     return log_level_int
-# logic
-def read_status():
-    write(STATUS)
-    time.sleep(0.1)
-    s = read(1)
-    return s
+
+
+# works as interrupt
+def reader_request_callback(gpio):
+  while True:
+    data = read(6)
+    event = data[0]
+
+    if event == EVENT_NODATA:
+      break
+
+    bits = data[1]
+    bytes = (bits + 7) / 8
+    print(str(bytes) + " bytes")
+    for i in range(0, bytes):
+      print(hex(data[i + 2]))
+    if event == EVENT_CARD_ID:
+        check_nfc(data)
+    if event == EVENT_CODE:
+        check_code(data)
+
 
 # reads NFC and checks if it is valid
-def check_nfc():
+def check_nfc(card_code):
     logger.debug("checking nfc")
 
-    write(READ_NFC)
-    time.sleep(0.1)
-    s = read(4)
-
-    nfc_str = ''.join('{:02x}'.format(x) for x in s)
+    nfc_str = ''.join('{:02x}'.format(x) for x in card_code)
     logger.warning("checking nfc: %s", nfc_str)
 
     try:
@@ -103,32 +113,19 @@ def check_nfc():
         if card.user_id.valid_till < datetime.datetime.now():
             raise Exception("User exists but has no access")
         open_door()
-        write(PLAY_GRANTED)
     except Exception as e:
         logger.error("unauthorized card read: %s", nfc_str)
         logger.error(traceback.format_exc())
-        write(PLAY_DENIED)
+        deny_access()
 
-
-
-
-
-    #if s[:3] == [131, 78, 213]:
-    #    open_door()
-    #    write(PLAY_GRANTED)
-    #else:
-    #    logger.warning("access denied for: %s", s)
-    #    write(PLAY_DENIED)
 
 # reads code and checks if it is valid
-def check_code():
+def check_code(code):
+
     logger.debug("checking code")
-    write(READ_KEYPAD)
-    time.sleep(0.1)
-    s = read(8)
     logger.warning("checking code: %s", s)
 
-    code_str = ''.join(map(chr, s[:6]))
+    code_str = ''.join(map(chr, code))
 
     try:
         codes = Code.select().where(Code.code == code_str)
@@ -139,33 +136,29 @@ def check_code():
             raise Exception("Code exists but expired")
         logger.error("opening door with code %s", code_str)
         open_door()
-        write(PLAY_GRANTED)
     except Exception as e:
-        logger.error("unauthorized card read: %s", code_str)
+        logger.error("unauthorized code read: %s", code_str)
         logger.error(traceback.format_exc())
-        write(PLAY_DENIED)
+        deny_access()
 
-    #if s[:4] == [49,50,51,52]: # 1,2,3,4 on keypad
-    #    open_door()
-    #    write(PLAY_GRANTED)
-    #else:
-    #    logger.warning("access denied for: %s", s)
-    #    write(PLAY_DENIED)
 
 def main_loop():
     logger.warning("starting main loop")
     delay = NORMAL_DELAY
+
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.add_event_detect(4, GPIO.FALLING, callback=reader_request_callback)
+
+    if GPIO.input(4) == GPIO.LOW:
+        reader_request_callback(4)
+
+
+
     while(True):
         try:
-            logger.debug("loop")
-            s = read_status()
-            s = s[0]
-            logger.info("status: %s", s)
-            if s&1: # lower bit means reader has NFC data
-                check_nfc()
-            if s&2: # second bit means reader has code data
-                check_code()
-
+            time.sleep(0.1)
+            pass
         except Exception as e:
             logger.error("Exception: %s", e)
             logger.error(traceback.format_exc())
@@ -194,10 +187,7 @@ def main():
     db.connect()
 
     main_loop()
-
-
-
-
+    GPIO.cleanup()
 
 if __name__ == '__main__':
     main()
