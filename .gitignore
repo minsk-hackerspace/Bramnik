@@ -9,3 +9,4 @@ Thumbs.db
 *.swp
 .idea
 software/host/py/env
+software/host/env/
