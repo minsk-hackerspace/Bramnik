@@ -3,6 +3,7 @@
 ```bash
 sudo apt-get install python-pip
 sudo apt-get install python3-smbus
+sudo apt-get install python3-dev
 pip install virtualenv
 sudo /usr/bin/easy_install virtualenv
 cd <project_path>
