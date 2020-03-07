@@ -44,6 +44,8 @@ CMD_READER_EN  = (1<<3)
 CMD_OPEN       = (1<<4)
 CMD_DENY       = (1<<5)
 
+codes_to_check = list()
+cards_to_check = list()
 # I2C low level
 # ---------------------------------------------------------
 def read(num):
@@ -79,22 +81,28 @@ def _log_level_string_to_int(log_level_string):
 
 # works as interrupt
 def reader_request_callback(gpio):
-  while True:
-    data = read(6)
-    event = data[0]
+    global codes_to_check
+    global cards_to_check
 
-    if event == EVENT_NODATA:
-      break
+    while True:
+        data = read(6)
+        event = data[0]
 
-    bits = data[1]
-    bytes = (bits + 7) / 8
-    print(str(bytes) + " bytes")
-    for i in range(0, bytes):
-      print(hex(data[i + 2]))
-    if event == EVENT_CARD_ID:
-        check_nfc(data)
-    if event == EVENT_CODE:
-        check_code(data)
+        if event == EVENT_NODATA:
+        break
+
+        bits = data[1]
+        bytes = (bits + 7) / 8
+        print(str(bytes) + " bytes")
+        for i in range(0, bytes):
+        print(hex(data[i + 2]))
+
+        # remember what happens (it is interrupt).
+        # Check codes later
+        if event == EVENT_CARD_ID:
+            cards_to_check.append(data)
+        if event == EVENT_CODE:
+            codes_to_check.append(data)
 
 
 # reads NFC and checks if it is valid
@@ -143,21 +151,26 @@ def check_code(code):
 
 
 def main_loop():
+    global codes_to_check
+    global cards_to_check
+
     logger.warning("starting main loop")
     delay = NORMAL_DELAY
 
+    #setup interrupt callback on GPIO
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.add_event_detect(4, GPIO.FALLING, callback=reader_request_callback)
-
     if GPIO.input(4) == GPIO.LOW:
         reader_request_callback(4)
 
-
-
     while(True):
         try:
-            time.sleep(0.1)
+            # check if codes arrived and handle them
+            for nfc in cards_to_check:
+                check_nfc(nfc)
+            for code in codes_to_check:
+                check_code(code)
             pass
         except Exception as e:
             logger.error("Exception: %s", e)
