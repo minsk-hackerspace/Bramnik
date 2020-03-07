@@ -22,7 +22,7 @@ pip install -r requirements.txt
 env/bin/python host.py
 ```
 
-#install as service (systemd)
+# install as service (systemd)
 
 ```bash
 sudo systemctl edit --force bramnik
