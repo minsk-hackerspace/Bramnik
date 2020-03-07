@@ -1,10 +1,10 @@
-cffi==1.11.5
+cffi==1.14.0
 Click==7.0
-idna==2.2
-peewee==3.8.2
-pyasn1==0.1.9
+idna==2.9
+peewee==3.13.1
+pyasn1==0.4.8
 pycparser==2.19
-RPi.GPIO==0.6.5
+RPi.GPIO==0.7.0
 RPIO==0.10.0
-six==1.10.0
-smbus2==0.2.3
+six==1.14.0
+smbus2==0.3.0

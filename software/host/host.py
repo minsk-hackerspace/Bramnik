@@ -3,6 +3,7 @@ import codecs
 hexify = codecs.getencoder('hex')
 import datetime
 import traceback
+import RPi.GPIO as GPIO
 from models import *
 
 import argparse
@@ -89,13 +90,13 @@ def reader_request_callback(gpio):
         event = data[0]
 
         if event == EVENT_NODATA:
-        break
+            break
 
         bits = data[1]
         bytes = (bits + 7) / 8
         print(str(bytes) + " bytes")
         for i in range(0, bytes):
-        print(hex(data[i + 2]))
+            print(hex(data[i + 2]))
 
         # remember what happens (it is interrupt).
         # Check codes later
@@ -171,7 +172,7 @@ def main_loop():
                 check_nfc(nfc)
             for code in codes_to_check:
                 check_code(code)
-            pass
+            logger.info("loop.")
         except Exception as e:
             logger.error("Exception: %s", e)
             logger.error(traceback.format_exc())
