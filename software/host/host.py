@@ -12,7 +12,7 @@ _LOG_LEVEL_STRINGS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
 import logging
 logging.basicConfig(
             level=logging.DEBUG,
-            format="%(asctime)s %(name)s %(levelname)-8s %(thread)d %(message)s",
+            format="%(asctime)s %(name)s %(levelname)-8s %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S")
 
 logger = None
@@ -62,11 +62,11 @@ def write(command):
 
 def open_door():
     logger.warning("Openning door")
-    write(CMD_GREENLED|CMD_OPEN)
+    write(CMD_READER_EN|CMD_GREENLED|CMD_OPEN)
 
 def deny_access():
     logger.warning("Deny access")
-    write(CMD_DENY)
+    write(CMD_READER_EN|CMD_DENY)
 
 # arg parsing
 # ---------------------------------------------------------
@@ -88,17 +88,18 @@ def reader_request_callback(gpio):
     while True:
         data = read(6)
         event = data[0]
-
+        print(event)
         if event == EVENT_NODATA:
             break
 
-        bits = data[1]
-        bytes = (bits + 7) / 8
-        print(str(bytes) + " bytes")
-        for i in range(0, bytes):
-            print(hex(data[i + 2]))
+        #bits = data[1]
+        #bytes = int((bits + 7) / 8)
+        #print(str(bytes) + " bytes")
+        #for i in range(0, bytes):
+        #    print(hex(data[i + 2]))
 
         # remember what happens (it is interrupt).
+
         # Check codes later
         if event == EVENT_CARD_ID:
             cards_to_check.append(data)
@@ -132,7 +133,7 @@ def check_nfc(card_code):
 def check_code(code):
 
     logger.debug("checking code")
-    logger.warning("checking code: %s", s)
+    logger.warning("checking code: %s", code)
 
     code_str = ''.join(map(chr, code))
 
@@ -165,14 +166,19 @@ def main_loop():
     if GPIO.input(4) == GPIO.LOW:
         reader_request_callback(4)
 
+    open_door()
+    deny_access()
     while(True):
         try:
             # check if codes arrived and handle them
             for nfc in cards_to_check:
                 check_nfc(nfc)
+            cards_to_check = []
             for code in codes_to_check:
                 check_code(code)
+            codes_to_check = []
             logger.info("loop.")
+
         except Exception as e:
             logger.error("Exception: %s", e)
             logger.error(traceback.format_exc())
