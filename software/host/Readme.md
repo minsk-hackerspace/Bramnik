@@ -36,6 +36,9 @@ sudo systemctl start bramnik # start bramnikright now
 sudo systemctl enable bramnik # start bramnik at system start
 ```
 
+# Cron to resync users and cards
+
+Use sample file from folder *etc_cron.d/bramnik*
 
 # Todo
 * Make date comparison in UTC

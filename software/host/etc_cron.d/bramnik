@@ -1,0 +1,1 @@
+*/5 * * * * root /srv/Bramnik/software/host/run_sync.sh
