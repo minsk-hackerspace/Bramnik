@@ -117,7 +117,7 @@ def check_nfc(card_code):
         if len(cards)==0:
             raise Exception("Card has no valid user")
         card = cards[0]
-        logger.info("checking user %s", card.user_id.name)
+        logger.warning("checking user %s", card.user_id.name)
         if card.user_id.valid_till < datetime.datetime.now():
             raise Exception("User exists but has no access")
         open_door()
@@ -196,9 +196,11 @@ def main():
     parsed_args = parser.parse_args()
     logger = logging.getLogger("bramnik")
     logger.setLevel(parsed_args.loglevel)
-
+    logging.getLogger("peewee").setLevel(parsed_args.loglevel)
 
     db.connect()
+    logger.warning("Total users: %d", User.select().count())
+    logger.warning("Total cards: %d", Card.select().count())
 
     main_loop()
     GPIO.cleanup()
