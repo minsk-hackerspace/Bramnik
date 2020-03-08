@@ -100,11 +100,11 @@ def reader_request_callback(gpio):
 
         # remember what happens (it is interrupt).
 
-        # Check codes later
+        # Card byte order is reversed
         if event == EVENT_CARD_ID:
-            cards_to_check.append(data)
+            cards_to_check.append(data[-1:1:-1])
         if event == EVENT_CODE:
-            codes_to_check.append(data)
+            codes_to_check.append(data[-1:1:-1])
 
 
 # reads NFC and checks if it is valid
@@ -177,7 +177,6 @@ def main_loop():
             for code in codes_to_check:
                 check_code(code)
             codes_to_check = []
-            logger.info("loop.")
 
         except Exception as e:
             logger.error("Exception: %s", e)
