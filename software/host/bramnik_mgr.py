@@ -27,15 +27,28 @@ def user():
 @user.command(help="Sync user list with json file from site")
 @click.argument("file_name")
 def sync(file_name):
-    created_count = 0
+    user_count = 0
+    card_count = 0
     with open(file_name) as f:
         hackers = json.load(f)
         for hacker in hackers:
-            name_parts = [hacker["first_name"], hacker["last_name"]]
-            name = " ".join([x.strip() for x in name_parts if x is not None])
-            user, created = User.get_or_create(account_id=hacker["id"], defaults={"name": name, "valid_till": datetime.now()})
-            created_count = created_count + 1 if created else 0
-    print("created", created_count, "users")
+            paid_until = hacker["paid_until"]
+            if not paid_until:
+                paid_until = "1990-01-01"
+            user, created = User.get_or_create(account_id=hacker["id"], defaults={"name": hacker["id"], "valid_till": datetime.strptime(paid_until, "%Y-%m-%d")})
+            user_count = user_count + (1 if created else 0)
+
+            # Update paid time
+            if not created:
+                user.valid_till = datetime.strptime(paid_until, "%Y-%m-%d")
+                user.save()
+
+            # Sync cards
+            for nfc_key in hacker["nfc_keys"]:
+                sanitized_key = nfc_key.replace(":", "")[-8:]
+                card, created = Card.get_or_create(user_id=user.id, card_id=sanitized_key)
+                card_count = card_count + (1 if created else 0)
+    print("created", user_count, "users,", card_count, "cards")
 
 @user.command(help="List all users in system")
 def list():

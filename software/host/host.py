@@ -109,8 +109,6 @@ def reader_request_callback(gpio):
 
 # reads NFC and checks if it is valid
 def check_nfc(card_code):
-    logger.debug("checking nfc")
-
     nfc_str = ''.join('{:02x}'.format(x) for x in card_code)
     logger.warning("checking nfc: %s", nfc_str)
 
@@ -119,20 +117,19 @@ def check_nfc(card_code):
         if len(cards)==0:
             raise Exception("Card has no valid user")
         card = cards[0]
-        logger.warning("checking user %s", card.user_id.name)
+        logger.info("checking user %s", card.user_id.name)
         if card.user_id.valid_till < datetime.datetime.now():
             raise Exception("User exists but has no access")
         open_door()
     except Exception as e:
         logger.error("unauthorized card read: %s", nfc_str)
-        logger.error(traceback.format_exc())
+        logger.debug(traceback.format_exc())
         deny_access()
 
 
 # reads code and checks if it is valid
 def check_code(code):
 
-    logger.debug("checking code")
     logger.warning("checking code: %s", code)
 
     code_str = ''.join(map(chr, code))
@@ -148,7 +145,7 @@ def check_code(code):
         open_door()
     except Exception as e:
         logger.error("unauthorized code read: %s", code_str)
-        logger.error(traceback.format_exc())
+        logger.debug(traceback.format_exc())
         deny_access()
 
 
@@ -166,8 +163,6 @@ def main_loop():
     if GPIO.input(4) == GPIO.LOW:
         reader_request_callback(4)
 
-    open_door()
-    deny_access()
     while(True):
         try:
             # check if codes arrived and handle them
@@ -180,7 +175,7 @@ def main_loop():
 
         except Exception as e:
             logger.error("Exception: %s", e)
-            logger.error(traceback.format_exc())
+            logger.debug(traceback.format_exc())
             delay = EXCEPTION_DELAY
         else:
             delay = NORMAL_DELAY
