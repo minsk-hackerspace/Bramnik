@@ -15,6 +15,7 @@
 #define PIN_BEEP 5
 #define PIN_LOCK 8
 #define PIN_ONBOARDLED 13
+#define PIN_OPEN_BTN 6
 
 #define CMD_BEEP       (1<<1)
 #define CMD_GREENLED   (1<<2)
@@ -239,7 +240,8 @@ void setup() {
   digitalWrite(PIN_ONBOARDLED, LOW);
   pinMode(PIN_ONBOARDLED, OUTPUT);
   
-  
+  pinMode(PIN_OPEN_BTN, INPUT_PULLUP);
+
 //  TODO COMMENT
 //  delay(200);
 //  accessDeny();
@@ -298,6 +300,8 @@ void loop() {
    hostCommandToExecute = 0; 
   }
 
+  if (digitalRead(PIN_OPEN_BTN) == LOW)
+      unlock();
 
   delay(100);
 }
