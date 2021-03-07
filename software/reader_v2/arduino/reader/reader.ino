@@ -13,7 +13,7 @@
 #define PIN_INT 10
 #define PIN_GREENLED 4
 #define PIN_BEEP 5
-#define PIN_LOCK 9
+#define PIN_LOCK 8
 #define PIN_ONBOARDLED 13
 
 #define CMD_BEEP       (1<<1)
