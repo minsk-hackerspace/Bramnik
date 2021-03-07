@@ -1,9 +1,12 @@
+#!/usr/bin/python3
+
 import sys
 import codecs
 hexify = codecs.getencoder('hex')
 import datetime
 import traceback
 import RPi.GPIO as GPIO
+import threading
 from models import *
 
 import argparse
@@ -25,10 +28,6 @@ import time
 # I2C consts
 address = 0x06
 offset = 0
-
-# Constants
-NORMAL_DELAY = 1
-EXCEPTION_DELAY = 2
 
 # commands from WG card reader
 EVENT_CARD_ID = 0
@@ -84,6 +83,7 @@ def _log_level_string_to_int(log_level_string):
 def reader_request_callback(gpio):
     global codes_to_check
     global cards_to_check
+    global reader_event
 
     while True:
         data = read(6)
@@ -105,6 +105,8 @@ def reader_request_callback(gpio):
             cards_to_check.append(data[-1:1:-1])
         if event == EVENT_CODE:
             codes_to_check.append(data[-1:1:-1])
+
+    reader_event.set()
 
 
 # reads NFC and checks if it is valid
@@ -152,9 +154,12 @@ def check_code(code):
 def main_loop():
     global codes_to_check
     global cards_to_check
+    global reader_event
+
+    reader_event = threading.Event()
+    reader_event.clear()
 
     logger.warning("starting main loop")
-    delay = NORMAL_DELAY
 
     #setup interrupt callback on GPIO
     GPIO.setmode(GPIO.BCM)
@@ -176,11 +181,9 @@ def main_loop():
         except Exception as e:
             logger.error("Exception: %s", e)
             logger.debug(traceback.format_exc())
-            delay = EXCEPTION_DELAY
-        else:
-            delay = NORMAL_DELAY
-        #delay
-        time.sleep(delay)
+
+        reader_event.wait(timeout=10)
+        reader_event.clear()
 
 
 def main():
