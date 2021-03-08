@@ -130,7 +130,7 @@ def emit(authorized_by, ttl, comment, user_id):
             return
         user = users[0]
 
-    code = ''.join([random.choice(string.digits) for _ in range(6)])
+    code = ''.join([random.choice(string.digits) for _ in range(8)])
     valid_till = datetime.now() + timedelta(minutes=ttl)
 
     Code.create(user_id=user, code=code, valid_till=valid_till, authorized_by_id=authorized_by_user, comment=comment)

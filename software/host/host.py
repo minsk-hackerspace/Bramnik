@@ -134,7 +134,7 @@ def check_code(code):
 
     logger.warning("checking code: %s", code)
 
-    code_str = ''.join(map(chr, code))
+    code_str = ''.join(map(lambda c:  str(c & 0x0f) + str(c >> 4), code))[::-1]
 
     try:
         codes = Code.select().where(Code.code == code_str)
