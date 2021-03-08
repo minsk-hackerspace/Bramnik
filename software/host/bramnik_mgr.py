@@ -29,6 +29,7 @@ def user():
 def sync(file_name):
     user_count = 0
     card_count = 0
+    cards_removed = 0
     with open(file_name) as f:
         hackers = json.load(f)
         for hacker in hackers:
@@ -45,12 +46,29 @@ def sync(file_name):
                 user.valid_till = valid_till
                 user.save()
 
+            q = Card.select().where(Card.user_id == user.id)
+            existing_keys = []
+            for key in q:
+                existing_keys.append(key.card_id)
+
             # Sync cards
             for nfc_key in hacker["nfc_keys"]:
                 sanitized_key = nfc_key.replace(":", "")[-8:]
                 card, created = Card.get_or_create(user_id=user.id, card_id=sanitized_key)
+                try:
+                    existing_keys.remove(sanitized_key)
+                except:
+                    pass
+
                 card_count = card_count + (1 if created else 0)
+
+            for key in existing_keys:
+                card = Card.get(user_id=user.id, card_id=key)
+                card.delete_instance()
+                cards_removed += 1
+
     print("created", user_count, "users,", card_count, "cards")
+    print("removed", cards_removed, "cards")
 
 @user.command(help="List all users in system")
 def list():
