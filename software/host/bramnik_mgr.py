@@ -115,7 +115,8 @@ def code():
 @click.argument("ttl", type=click.INT)
 @click.argument("comment")
 @click.argument("user_id", required=False)
-def emit(authorized_by, ttl, comment, user_id):
+@click.argument("code_len", default=4, type=click.INT, required=False)
+def emit(authorized_by, ttl, comment, user_id, code_len):
     authorized_by_users = User.select().where(User.account_id == authorized_by)
     if len(authorized_by_users) == 0:
         logger.error("Emiting code by unknown user")
@@ -130,7 +131,7 @@ def emit(authorized_by, ttl, comment, user_id):
             return
         user = users[0]
 
-    code = ''.join([random.choice(string.digits) for _ in range(8)])
+    code = ''.join([random.choice(string.digits) for _ in range(code_len)])
     valid_till = datetime.now() + timedelta(minutes=ttl)
 
     Code.create(user_id=user, code=code, valid_till=valid_till, authorized_by_id=authorized_by_user, comment=comment)

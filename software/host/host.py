@@ -128,13 +128,28 @@ def check_nfc(card_code):
         logger.debug(traceback.format_exc())
         deny_access()
 
+def code_to_str(code):
+    str_code = ''
+    for a in reversed(code):
+        if a >> 4 == 15:
+            break
+
+        str_code += str(a >> 4)
+
+        if a & 0x0f == 15:
+            break
+
+        str_code += str(a & 0x0f)
+
+    return str_code
+
 
 # reads code and checks if it is valid
 def check_code(code):
 
     logger.warning("checking code: %s", code)
 
-    code_str = ''.join(map(lambda c:  str(c & 0x0f) + str(c >> 4), code))[::-1]
+    code_str = code_to_str(code)
 
     try:
         codes = Code.select().where(Code.code == code_str)
