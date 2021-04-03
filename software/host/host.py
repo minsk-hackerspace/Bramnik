@@ -119,10 +119,18 @@ def check_nfc(card_code):
         if len(cards)==0:
             raise Exception("Card has no valid user")
         card = cards[0]
+
         logger.warning("checking user %s", card.user_id.name)
+
         if card.user_id.valid_till < datetime.datetime.now():
-            raise Exception("User exists but has no access")
+            raise Exception("User exists but access expired")
+
+        if not card.user_id.access_allowed:
+            logger.error("Acces denied for user %s", card.user_id.name)
+            raise Exception()
+
         open_door()
+
     except Exception as e:
         logger.error("unauthorized card read: %s", nfc_str)
         logger.debug(traceback.format_exc())
@@ -149,6 +157,7 @@ def check_code(code):
 
     logger.warning("checking code: %s", code)
 
+#    code_str = ''.join(map(lambda c: str(c & 0x0f) + str(c >> 4), code))[::-1]
     code_str = code_to_str(code)
 
     try:

@@ -38,12 +38,13 @@ def sync(file_name):
                 paid_until = "1990-01-01"
 
             valid_till = datetime.strptime(paid_until, "%Y-%m-%d") + timedelta(days=14)
-            user, created = User.get_or_create(account_id=hacker["id"], defaults={"name": hacker["id"], "valid_till": valid_till})
+            user, created = User.get_or_create(account_id=hacker["id"], defaults={"name": hacker["id"], "valid_till": valid_till, "access_allowed": hacker["access_allowed"]})
             user_count = user_count + (1 if created else 0)
 
             # Update paid time
             if not created:
                 user.valid_till = valid_till
+                user.access_allowed = hacker["access_allowed"]
                 user.save()
 
             q = Card.select().where(Card.user_id == user.id)

@@ -12,6 +12,7 @@ class User(BaseModel):
   account_id = IntegerField(unique=True)
   valid_till = DateTimeField()
   name = TextField()
+  access_allowed = BooleanField(default=True)
 
 class Code(BaseModel):
   class Meta:
