@@ -1,1 +1,3 @@
 */5 * * * * root /srv/Bramnik/software/host/run_sync.sh
+00 18 * * 4 cronic /srv/Bramnik/software/host/emit_dod_code.sh
+

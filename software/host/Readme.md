@@ -1,9 +1,7 @@
 
 # Initial Install
 ```bash
-sudo apt-get install python-pip
-sudo apt-get install python3-smbus
-sudo apt-get install python3-dev
+sudo apt-get install python-pip python3-smbus python3-dev cronic
 pip install virtualenv
 sudo /usr/bin/easy_install virtualenv
 cd <project_path>
@@ -36,7 +34,7 @@ sudo systemctl start bramnik # start bramnikright now
 sudo systemctl enable bramnik # start bramnik at system start
 ```
 
-# Cron to resync users and cards
+# Cron to resync users and cards and emit code for open day
 
 Use sample file from folder *etc_cron.d/bramnik*
 
