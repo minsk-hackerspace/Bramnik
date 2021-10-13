@@ -4,9 +4,12 @@ import click
 import string
 import random
 import json
-from datetime import datetime, timedelta
-from models import *
 import logging
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from models import *
+
 logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(name)s %(levelname)-8s %(thread)d %(message)s",
@@ -30,8 +33,18 @@ def sync(file_name):
     user_count = 0
     card_count = 0
     cards_removed = 0
-    with open(file_name) as f:
-        hackers = json.load(f)
+    hackers = json.loads(Path(file_name).read_text())
+    hackers_cards = [key.replace(":", "")[-8:] for hacker in hackers for key in hacker["nfc_keys"]]
+
+    # Clean up all unused cards
+    cards_removed += Card.delete().where(Card.card_id.not_in(hackers_cards)).execute()
+    # Clean up cards passed from one user to another
+    for hacker in hackers:
+        hacker_keys = [key.replace(":", "")[-8:] for key in hacker["nfc_keys"]]
+        cards_removed += Card.delete().where(Card.user_id==hacker["id"] & Card.card_id.not_in(hacker_keys)).execute()
+    print("removed", cards_removed, "cards")
+        
+    if "just a hack to avoid reindenting":
         for hacker in hackers:
             paid_until = hacker["paid_until"]
             if not paid_until:
@@ -63,13 +76,7 @@ def sync(file_name):
 
                 card_count = card_count + (1 if created else 0)
 
-            for key in existing_keys:
-                card = Card.get(user_id=user.id, card_id=key)
-                card.delete_instance()
-                cards_removed += 1
-
     print("created", user_count, "users,", card_count, "cards")
-    print("removed", cards_removed, "cards")
 
 @user.command(help="List all users in system")
 def list():
