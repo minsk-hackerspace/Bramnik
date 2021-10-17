@@ -20,7 +20,7 @@ logging.basicConfig(
 
 logger = None
 
-from smbus2 import SMBus, i2c_msg, SMBusWrapper
+from smbus2 import SMBus, i2c_msg
 bus = SMBus(1) # 0 indicates /dev/i2c-0
 
 import time
@@ -49,14 +49,11 @@ cards_to_check = list()
 # I2C low level
 # ---------------------------------------------------------
 def read(num):
-    #with SMBusWrapper(1) as bus:
-    #msg = [bus.read_byte(address) for x in range(0,num)]
     msg = i2c_msg.read(address, num)
     bus.i2c_rdwr(msg)
     return list(msg)
 
 def write(command):
-    #with SMBusWrapper(1) as bus:
     bus.write_byte(address, command)
 
 def open_door():
