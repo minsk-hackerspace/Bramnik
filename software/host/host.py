@@ -7,6 +7,7 @@ import datetime
 import traceback
 import RPi.GPIO as GPIO
 import threading
+import signal
 from models import *
 
 import argparse
@@ -45,6 +46,8 @@ CMD_GREENLED   = (1<<2)
 CMD_READER_EN  = (1<<3)
 CMD_OPEN       = (1<<4)
 CMD_DENY       = (1<<5)
+
+got_USR1 = False
 
 codes_to_check = list()
 cards_to_check = list()
@@ -178,6 +181,7 @@ def main_loop():
     global codes_to_check
     global cards_to_check
     global reader_event
+    global got_USR1
 
     reader_event = threading.Event()
     reader_event.clear()
@@ -200,6 +204,11 @@ def main_loop():
             for code in codes_to_check:
                 check_code(code)
             codes_to_check = []
+
+            if got_USR1:
+                logger.warning("Got signal USR1 — open the door")
+                open_door()
+                got_USR1 = False
 
         except Exception as e:
             logger.error("Exception: %s", e)
@@ -231,5 +240,13 @@ def main():
     main_loop()
     GPIO.cleanup()
 
+def USR1_handler(signum, frame):
+    global got_USR1
+    global reader_event
+
+    got_USR1 = True
+    reader_event.set()
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGUSR1, USR1_handler)
     main()
