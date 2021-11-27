@@ -29,6 +29,8 @@ import time
 address = 0x06
 offset = 0
 
+READER_IRQ_PIN = 4
+
 # commands from WG card reader
 EVENT_CARD_ID = 0
 EVENT_CODE    = 1
@@ -184,10 +186,10 @@ def main_loop():
 
     #setup interrupt callback on GPIO
     GPIO.setmode(GPIO.BCM)
-    GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.add_event_detect(4, GPIO.FALLING, callback=reader_request_callback)
-    if GPIO.input(4) == GPIO.LOW:
-        reader_request_callback(4)
+    GPIO.setup(READER_IRQ_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.add_event_detect(READER_IRQ_PIN, GPIO.FALLING, callback=reader_request_callback)
+    if GPIO.input(READER_IRQ_PIN) == GPIO.LOW:
+        reader_request_callback(READER_IRQ_PIN)
 
     while(True):
         try:
