@@ -8,6 +8,8 @@ import traceback
 import RPi.GPIO as GPIO
 import threading
 import signal
+import requests
+import json
 from models import *
 
 import argparse
@@ -80,6 +82,17 @@ def _log_level_string_to_int(log_level_string):
     assert isinstance(log_level_int, int)
     return log_level_int
 
+def notify_telegram(message):
+    global tg_chat_id
+    global tg_token
+
+    url = 'https://api.telegram.org/bot{0}/sendMessage'.format(tg_token)
+    data = {"chat_id": tg_chat_id, "text": message}
+
+    try:
+        x = requests.post(url, data = data)
+    except Exception as e:
+        logger.error("fail to post notification: %s", e)
 
 # works as interrupt
 def reader_request_callback(gpio):
@@ -132,6 +145,8 @@ def check_nfc(card_code):
             raise Exception()
 
         open_door()
+        notify_telegram(u'Дверь открыта участником №{0}'.format(card.user_id.name))
+
 
     except Exception as e:
         logger.error("unauthorized card read: %s", nfc_str)
@@ -171,6 +186,8 @@ def check_code(code):
             raise Exception("Code exists but expired")
         logger.error("opening door with code %s", code_str)
         open_door()
+        notify_telegram('Дверь открыта кодом {0} (участник №{1})'.format(code_str, code.user.name))
+
     except Exception as e:
         logger.error("unauthorized code read: %s", code_str)
         logger.debug(traceback.format_exc())
@@ -220,6 +237,8 @@ def main_loop():
 
 def main():
     global logger
+    global tg_token
+    global tg_chat_id
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--loglevel',
@@ -228,10 +247,21 @@ def main():
                         type=_log_level_string_to_int,
                         nargs='?',
                         help='Set the logging output level. {0}'.format(_LOG_LEVEL_STRINGS))
+    parser.add_argument('--tgtoken',
+                        dest='tgtoken',
+                        nargs='?',
+                        help='Telegram bot token for notifications')
+    parser.add_argument('--tgchatid',
+                        dest='tgchatid',
+                        nargs='?',
+                        help='Telegram chat id for notifications')
     parsed_args = parser.parse_args()
     logger = logging.getLogger("bramnik")
     logger.setLevel(parsed_args.loglevel)
     logging.getLogger("peewee").setLevel(parsed_args.loglevel)
+
+    tg_token = parsed_args.tgtoken
+    tg_chat_id = parsed_args.tgchatid
 
     db.connect()
     logger.warning("Total users: %d", User.select().count())
