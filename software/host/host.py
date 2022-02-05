@@ -135,18 +135,18 @@ def check_nfc(card_code):
             raise Exception("Card has no valid user")
         card = cards[0]
 
-        logger.warning("checking user %s", card.user_id.name)
+        logger.warning("checking user %s", card.user_id.account_id)
 
         if card.user_id.valid_till < datetime.datetime.now():
             raise Exception("User exists but access expired")
 
         if not card.user_id.access_allowed:
-            logger.error("Acces denied for user %s", card.user_id.name)
+            logger.error("Acces denied for user %s", card.user_id.account_id)
             raise Exception()
 
         open_door()
         notify_telegram(u'Дверь открыта участником №{0} ({1})'
-                .format(card.user.account_id, card.user.name))
+                .format(card.user_id.account_id, card.user_id.name))
 
 
     except Exception as e:
@@ -188,7 +188,7 @@ def check_code(code):
         logger.error("opening door with code %s", code_str)
         open_door()
         notify_telegram('Дверь открыта кодом {0} (участник №{1}, {2})'
-                .format(code_str, code.user.account_id, code.user.name))
+                .format(code_str, code.user_id.account_id, code.user_id.name))
 
     except Exception as e:
         logger.error("unauthorized code read: %s", code_str)
