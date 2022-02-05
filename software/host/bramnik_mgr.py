@@ -43,43 +43,42 @@ def sync(file_name):
         hacker_keys = [key.replace(":", "")[-8:] for key in hacker["nfc_keys"]]
         cards_removed += Card.delete().where(Card.user_id==hacker["id"] & Card.card_id.not_in(hacker_keys)).execute()
     print("removed", cards_removed, "cards")
-        
-    if "just a hack to avoid reindenting":
-        for hacker in hackers:
-            paid_until = hacker["paid_until"]
-            if not paid_until:
-                paid_until = "1990-01-01"
 
-            valid_till = datetime.strptime(paid_until, "%Y-%m-%d") + timedelta(days=14)
-            user, created = User.get_or_create(account_id=hacker["id"], defaults={"name": hacker["name"], "valid_till": valid_till, "access_allowed": hacker["access_allowed"]})
-            user_count = user_count + (1 if created else 0)
+    for hacker in hackers:
+        paid_until = hacker["paid_until"]
+        if not paid_until:
+            paid_until = "1990-01-01"
 
-            updated = user.valid_till != valid_till
-            updated |= user.access_allowed != hacker["access_allowed"]
-            updated |= user.name != hacker["name"]
+        valid_till = datetime.strptime(paid_until, "%Y-%m-%d") + timedelta(days=14)
+        user, created = User.get_or_create(account_id=hacker["id"], defaults={"name": hacker["name"], "valid_till": valid_till, "access_allowed": hacker["access_allowed"]})
+        user_count = user_count + (1 if created else 0)
 
-            # Update paid time
-            if updated:
-                user.valid_till = valid_till
-                user.access_allowed = hacker["access_allowed"]
-                user.name = hacker["name"]
-                user.save()
+        updated = user.valid_till != valid_till
+        updated |= user.access_allowed != hacker["access_allowed"]
+        updated |= user.name != hacker["name"]
 
-            q = Card.select().where(Card.user_id == user.id)
-            existing_keys = []
-            for key in q:
-                existing_keys.append(key.card_id)
+        # Update paid time
+        if updated:
+            user.valid_till = valid_till
+            user.access_allowed = hacker["access_allowed"]
+            user.name = hacker["name"]
+            user.save()
 
-            # Sync cards
-            for nfc_key in hacker["nfc_keys"]:
-                sanitized_key = nfc_key.replace(":", "")[-8:]
-                card, created = Card.get_or_create(user_id=user.id, card_id=sanitized_key)
-                try:
-                    existing_keys.remove(sanitized_key)
-                except:
-                    pass
+        q = Card.select().where(Card.user_id == user.id)
+        existing_keys = []
+        for key in q:
+            existing_keys.append(key.card_id)
 
-                card_count = card_count + (1 if created else 0)
+        # Sync cards
+        for nfc_key in hacker["nfc_keys"]:
+            sanitized_key = nfc_key.replace(":", "")[-8:]
+            card, created = Card.get_or_create(user_id=user.id, card_id=sanitized_key)
+            try:
+                existing_keys.remove(sanitized_key)
+            except:
+                pass
+
+            card_count = card_count + (1 if created else 0)
 
     print("created", user_count, "users,", card_count, "cards")
 
