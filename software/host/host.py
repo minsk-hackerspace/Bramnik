@@ -151,7 +151,7 @@ def check_nfc(card_code):
 
     except Exception as e:
         logger.error("unauthorized card read: %s", nfc_str)
-        logger.debug(traceback.format_exc())
+        logger.error(traceback.format_exc())
         deny_access()
 
 def code_to_str(code):
@@ -187,8 +187,8 @@ def check_code(code):
             raise Exception("Code exists but expired")
         logger.error("opening door with code %s", code_str)
         open_door()
-        notify_telegram('Дверь открыта кодом {0} (участник №{1}, {2})'
-                .format(code_str, code.user_id.account_id, code.user_id.name))
+        notify_telegram('Дверь открыта кодом, участник №{0} ({1})'
+                .format(code.user_id.account_id, code.user_id.name))
 
     except Exception as e:
         logger.error("unauthorized code read: %s", code_str)
