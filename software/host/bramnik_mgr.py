@@ -36,8 +36,10 @@ def sync(file_name):
     hackers = json.loads(Path(file_name).read_text())
     hackers_cards = [key.replace(":", "")[-8:] for hacker in hackers for key in hacker["nfc_keys"]]
 
+    logger.info("Clean up all unused cards")
     # Clean up all unused cards
     cards_removed += Card.delete().where(Card.card_id.not_in(hackers_cards)).execute()
+    logger.info("Clean up transferred cards")
     # Clean up cards passed from one user to another
     for hacker in hackers:
         hacker_keys = [key.replace(":", "")[-8:] for key in hacker["nfc_keys"]]
@@ -148,7 +150,7 @@ def emit(authorized_by, ttl, comment, user_id, code_len):
 
     Code.create(user_id=user, code=code, valid_till=valid_till, authorized_by_id=authorized_by_user, comment=comment)
 
-    print("code by {}: {} for {}".format(authorized_by_user.name, code, user.name if user else "(guest)"))
+    print("code by {}: {} for {}".format(authorized_by_user.account_id, code, user.account_id if user else "(guest)"))
 
 @code.command()
 def list(help="List all codes in system"):
