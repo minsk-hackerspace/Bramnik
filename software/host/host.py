@@ -187,11 +187,12 @@ def check_code(code):
             raise Exception("Code exists but expired")
         logger.error("opening door with code %s", code_str)
         open_door()
+        member_id = code.user_id.account_id if code.user_id else '---'
         notify_telegram('Дверь открыта кодом, участник №{0} ({1})'
-                .format(code.user_id.account_id, code.user_id.name))
+                .format(member_id, code.user_id.name if code.user_id else ''))
 
     except Exception as e:
-        logger.error("unauthorized code read: %s", code_str)
+        logger.error("unauthorized code read: %s, %s", code_str, e)
         logger.debug(traceback.format_exc())
         deny_access()
 
