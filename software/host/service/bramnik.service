@@ -4,7 +4,7 @@ Description=Bramnik
 [Service]
 EnvironmentFile=/etc/bramnik/bramnik.env
 Type=simple
-User=root
+User=pi
 WorkingDirectory=/srv/Bramnik/software/host
 ExecStart=/srv/Bramnik/software/host/host.py --loglevel $BRAMNIK_LOGLEVEL --tgtoken $TELEGRAM_TOKEN --tgchatid $TELEGRAM_NOTIFICATIONS_CHAT
 Restart=on-failure
