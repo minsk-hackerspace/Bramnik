@@ -1,42 +1,37 @@
 
-# Initial Install
+# Initial Install (based on Raspbian bullseye)
 ```bash
-sudo apt-get install python-pip python3-smbus python3-dev cronic
-pip install virtualenv
-sudo /usr/bin/easy_install virtualenv
-cd <project_path>
-```
-
-# install what's needed
-```bash
-cd <project_path>
-virtualenv -p python3 env
-source env/bin/activate
-pip install -r software/host/requirements.txt
+cd /srv
+mkdir Bramnik && chown pi:pi Bramnik
+git clone https://github.com/minsk-hackerspace/Bramnik.git
+sudo apt-get install python3-pip python3-smbus python3-click python3-peewee moreutils
+pip3 install smbus2
+cd Bramnik/software/host
 ```
 
 # run
 
 ```bash
-env/bin/python host.py
+# edit service/bramnik.env, fill needed variables
+. ./service/bramnik.env
+./host.py  --loglevel $BRAMNIK_LOGLEVEL --tgtoken $TELEGRAM_TOKEN --tgchatid $TELEGRAM_NOTIFICATIONS_CHAT
 ```
 
 # install as service (systemd)
 
 ```bash
-sudo systemctl edit --force bramnik
-# fill it with contents of service/bramnik.service
-# fix paths if necessary
+sudo cp service/bramnik.service /etc/systemd/system/
+# fix paths in the bramnik.service file if necessary
 sudo mkdir /etc/bramnik
-sudo nano /etc/bramnik/bramnik.env
-#fill it with service/bramnik.env
-sudo systemctl start bramnik # start bramnikright now
+sudo cp service/bramnik.env /etc/bramnik/
+sudo systemctl start bramnik # start bramnik right now
 sudo systemctl enable bramnik # start bramnik at system start
 ```
 
 # Cron to resync users and cards and emit code for open day
 
-Use sample file from folder *etc_cron.d/bramnik*
-
-# Todo
-* Make date comparison in UTC
+```
+sudo cp etc_cron.d/bramnik /etc/cron.d
+sudo chown root:root /etc/cron.d/bramnik
+sudo systemctl restart cron
+```
