@@ -6,7 +6,7 @@ set -e
 
 cd `dirname $0`
 
-code=`./env/bin/python ./bramnik_mgr.py code emit $DOD_CODE_ISSUER $DOD_CODE_TTL DoD | sed 's/^.*: \([0-9]\{4\}\) .*$/\1/'`
+code=`python3 ./bramnik_mgr.py code emit $DOD_CODE_ISSUER $DOD_CODE_TTL DoD | sed 's/^.*: \([0-9]\{4\}\) .*$/\1/'`
 
 echo "DoD code: $code"
 
