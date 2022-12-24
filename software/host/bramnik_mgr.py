@@ -131,6 +131,9 @@ def code():
 @click.argument("user_id", required=False)
 @click.argument("code_len", default=4, type=click.INT, required=False)
 def emit(authorized_by, ttl, comment, user_id, code_len):
+
+    Code.delete().where(Code.valid_till < datetime.now()).execute()
+
     authorized_by_users = User.select().where(User.account_id == authorized_by)
     if len(authorized_by_users) == 0:
         logger.error("Emiting code by unknown user")
